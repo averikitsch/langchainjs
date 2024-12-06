@@ -1,7 +1,7 @@
 {
-  "name": "langchain-google-cloud-sql-pg",
-  "version": "0.0.0",
-  "description": "Sample integration for LangChain.js",
+  "name": "@langchain/langchain-google-cloud-sql-pg",
+  "version": "0.0.1",
+  "description": "LangChain.js integrations for Google Cloud SQL for PostgreSQL",
   "type": "module",
   "engines": {
     "node": ">=18"
@@ -12,9 +12,9 @@
     "type": "git",
     "url": "git@github.com:langchain-ai/langchainjs.git"
   },
-  "homepage": "https://github.com/langchain-ai/langchainjs/tree/main/libs/langchain-INTEGRATION_NAME/",
+  "homepage": "https://github.com/langchain-ai/langchainjs/tree/main/libs/langchain-google-cloud-sql-pg/",
   "scripts": {
-    "build": "yarn turbo:command build:internal --filter=@langchain/INTEGRATION_NAME",
+    "build": "yarn turbo:command build:internal --filter=@langchain/langchain-google-cloud-sql-pg",
     "build:internal": "yarn lc_build --create-entrypoints --pre --tree-shaking",
     "lint:eslint": "NODE_OPTIONS=--max-old-space-size=4096 eslint --cache --ext .ts,.js src/",
     "lint:dpdm": "dpdm --exit-code circular:1 --no-warning --no-tree src/*.ts src/**/*.ts",
@@ -29,7 +29,7 @@
     "format": "prettier --config .prettierrc --write \"src\"",
     "format:check": "prettier --config .prettierrc --check \"src\""
   },
-  "author": "LangChain",
+  "author": "Google LLC",
   "license": "MIT",
   "dependencies": {
     "@google-cloud/cloud-sql-connector": "^1.4.0",

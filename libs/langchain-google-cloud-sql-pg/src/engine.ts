@@ -3,6 +3,17 @@ import { GoogleAuth } from "google-auth-library";
 import knex from "knex";
 import { getIAMPrincipalEmail } from "./utils/utils.js";
 
+export interface PostgresEngineArgs {
+  projectId: string,
+  region: string,
+  instance: string,
+  database: string,
+  ipType: IpAddressTypes,
+  user?: string, 
+  password?: string,
+  iamAccountEmail?: string,
+}
+
 class PostgresEngine {
 
   private static _createKey = Symbol();
@@ -25,19 +36,19 @@ class PostgresEngine {
    * @param user Optional - Postgres user name. Defaults to undefined
    * @param password Optional - Postgres user password. Defaults to undefined
    * @param iamAccountEmail Optional - IAM service account email. Defaults to undefined
-   * @returns PostgressEngine instance
+   * @returns PostgresEngine instance
    */
 
-  static async from_instance(
-      projectId: string,
-      region: string,
-      instance: string,
-      database: string,
-      ipType: IpAddressTypes = IpAddressTypes.PUBLIC,
-      user?: string, 
-      password?: string,
-      iamAccountEmail?: string,
-    ) {
+  static async from_instance({
+    projectId,
+    region,
+    instance,
+    database,
+    ipType = IpAddressTypes.PUBLIC,
+    user, 
+    password,
+    iamAccountEmail
+    }: PostgresEngineArgs) {
 
     let dbUser: string;
     let enableIAMAuth: boolean;
