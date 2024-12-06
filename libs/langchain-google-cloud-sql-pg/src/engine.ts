@@ -60,7 +60,7 @@ class PostgresEngine {
     }
 
     // User and password are given so we use the basic auth
-    if(user !== "" && password !== "") {
+    if(user !== undefined && password !== undefined) {
       enableIAMAuth = false;
       dbUser = user!;
     } else {
