@@ -4,11 +4,7 @@ import knex from "knex";
 import { getIAMPrincipalEmail } from "./utils/utils.js";
 
 export interface PostgresEngineArgs {
-  projectId: string,
-  region: string,
-  instance: string,
-  database: string,
-  ipType: IpAddressTypes,
+  ipType?: IpAddressTypes,
   user?: string, 
   password?: string,
   iamAccountEmail?: string,
@@ -28,26 +24,27 @@ class PostgresEngine {
   }
 
   /**
-   * @param projectId GCP Project ID
-   * @param region Postgres Instance Region
-   * @param instance Postgres Instance name
-   * @param database Database name
-   * @param ipType IP address type. Defaults to IPAddressType.Public
+   * @param projectId Required - GCP Project ID
+   * @param region Required - Postgres Instance Region
+   * @param instance Required - Postgres Instance name
+   * @param database Required - Database name
+   * @param ipType Optional - IP address type. Defaults to IPAddressType.PUBLIC
    * @param user Optional - Postgres user name. Defaults to undefined
    * @param password Optional - Postgres user password. Defaults to undefined
    * @param iamAccountEmail Optional - IAM service account email. Defaults to undefined
    * @returns PostgresEngine instance
    */
 
-  static async from_instance({
-    projectId,
-    region,
-    instance,
-    database,
-    ipType = IpAddressTypes.PUBLIC,
-    user, 
-    password,
-    iamAccountEmail
+  static async from_instance(
+    projectId: string,
+    region: string,
+    instance: string,
+    database: string,
+    {
+      ipType = IpAddressTypes.PUBLIC,
+      user, 
+      password,
+      iamAccountEmail
     }: PostgresEngineArgs) {
 
     let dbUser: string;
