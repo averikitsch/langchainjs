@@ -170,8 +170,6 @@ describe('PostgresEngine - table initialization', () => {
   
   test('should create the vectorstore table',async () => {
     const vsTableArgs: VectorStoreTableArgs = {
-      tableName: CUSTOM_TABLE,
-      vectorSize: VECTOR_SIZE,
       contentColumn: CONTENT_COLUMN,
       embeddingColumn: EMBEDDING_COLUMN,
       idColumn: ID_COLUMN, 
@@ -180,7 +178,7 @@ describe('PostgresEngine - table initialization', () => {
       overwriteExisting: true
     };
 
-    await PEInstance.init_vectorstore_table(vsTableArgs);
+    await PEInstance.init_vectorstore_table(CUSTOM_TABLE, VECTOR_SIZE, vsTableArgs);
 
     const query = `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${CUSTOM_TABLE}';`
     const expected = [
@@ -218,8 +216,8 @@ describe('PostgresEngine - table initialization', () => {
   })
 
   afterAll(async () => {
-    PEInstance.pool.raw(`DROP TABLE ${CUSTOM_TABLE}`)
-    PEInstance.pool.raw(`DROP TABLE ${CHAT_MSG_TABLE}`)
+    await PEInstance.pool.raw(`DROP TABLE "${CUSTOM_TABLE}"`)
+    await PEInstance.pool.raw(`DROP TABLE "${CHAT_MSG_TABLE}"`)
 
     try {
       await PEInstance.closeConnection();

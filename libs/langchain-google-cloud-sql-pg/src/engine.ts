@@ -11,8 +11,6 @@ export interface PostgresEngineArgs {
 }
 
 export interface VectorStoreTableArgs {
-  tableName: string,
-  vectorSize: number,
   schemaName?: string,
   contentColumn?: string,
   embeddingColumn?: string,
@@ -88,7 +86,7 @@ class PostgresEngine {
     let dbUser: string;
     let enableIAMAuth: boolean;
 
-    if((!user && password) || (user && !password)) { // Trying to implement an XOR for strings
+    if((!user && password) || (user && !password)) { // XOR for strings
       throw "Only one of 'user' or 'password' were specified. Either " +
         "both should be specified to use basic user/password " +
         "authentication or neither for IAM DB authentication.";
@@ -154,7 +152,6 @@ class PostgresEngine {
 
     const driver = 'postgresql+asyncpg';
 
-    // if((typeof url === "string") && !url.startsWith(driver) || (url instanceof URL && url.protocol !== driver)){
     if((typeof url === "string") && !url.startsWith(driver)){
       throw "Driver must be type 'postgresql+asyncpg'"
     }
@@ -187,15 +184,16 @@ class PostgresEngine {
    * @param overwriteExisting Whether to drop existing table. Default: False.
    * @param storeMetadata Whether to store metadata in the table. Default: True.
    */
-  async init_vectorstore_table({
-    tableName,
-    vectorSize,
+  async init_vectorstore_table(
+    tableName: string,
+    vectorSize: number,
+    {
     schemaName  = "public",
     contentColumn  = "content",
     embeddingColumn = "embedding",
-    metadataColumns = [],// This is optional
-    metadataJsonColumn = "langchain_metadata", // This is optional
-    idColumn = "langchain_id", // This is optional
+    metadataColumns = [],
+    metadataJsonColumn = "langchain_metadata", 
+    idColumn = "langchain_id",
     overwriteExisting = false,
     storeMetadata = true
   }: VectorStoreTableArgs): Promise<void> {
@@ -224,6 +222,8 @@ class PostgresEngine {
     }
 
     query += `\n);`
+
+    console.log(query)
 
     await this.pool.raw(query)
   }
