@@ -10,6 +10,42 @@ export interface PostgresEngineArgs {
   iamAccountEmail?: string,
 }
 
+export interface VectorStoreTableArgs {
+  schemaName?: string,
+  contentColumn?: string,
+  embeddingColumn?: string,
+  metadataColumns?: Column[],
+  metadataJsonColumn?: string, 
+  idColumn?: string | Column,
+  overwriteExisting?: boolean,
+  storeMetadata?: boolean
+}
+
+export class Column {
+  name: string;
+  dataType: string;
+  nullable: boolean;
+
+  constructor(name: string, dataType: string, nullable: boolean = true) {
+    this.name = name;
+    this.dataType = dataType;
+    this.nullable = nullable;
+
+    this.postInitilization()
+  }
+
+  private postInitilization() {
+    if(typeof this.name !== "string") {
+      throw "Column name must be type string";
+    }
+
+    if(typeof this.dataType !== "string") {
+      throw "Column data_type must be type string";
+    }
+
+  }
+}
+
 class PostgresEngine {
 
   private static _createKey = Symbol();
@@ -45,12 +81,12 @@ class PostgresEngine {
       user, 
       password,
       iamAccountEmail
-    }: PostgresEngineArgs) {
+    }: PostgresEngineArgs): Promise<PostgresEngine> {
 
     let dbUser: string;
     let enableIAMAuth: boolean;
 
-    if((!user && password) || (user && !password)) { // Trying to implement an XOR for strings
+    if((!user && password) || (user && !password)) { // XOR for strings
       throw "Only one of 'user' or 'password' were specified. Either " +
         "both should be specified to use basic user/password " +
         "authentication or neither for IAM DB authentication.";
@@ -97,11 +133,126 @@ class PostgresEngine {
   }
 
   /**
+   * Create a PostgresEngine instance from an Knex instance.
+   * 
+   * @param engine knex instance
+   * @returns PostgresEngine instance from a knex instance
+   */
+  static async from_engine(engine: knex.Knex<any, any[]>) {
+    return new PostgresEngine(PostgresEngine._createKey, engine)
+  }
+
+  /**
+   * Create a PostgresEngine instance from arguments.
+   * 
+   * @param url URL use to connect to a database
+   * @param poolConfig Optional - Configuration pool to use in the Knex configuration
+   * @returns PostgresEngine instance
+   */
+  static async from_engine_args(url: string | knex.Knex.StaticConnectionConfig, poolConfig?: knex.Knex.PoolConfig) {
+
+    const driver = 'postgresql+asyncpg';
+
+    if((typeof url === "string") && !url.startsWith(driver)){
+      throw "Driver must be type 'postgresql+asyncpg'"
+    }
+
+    const dbConfig: knex.Knex.Config<any> = {
+      client: 'pg',
+      connection: url,
+      acquireConnectionTimeout: 1000000,
+      pool:{
+        ...poolConfig,
+        acquireTimeoutMillis: 600000
+      }
+    };
+
+    const engine = knex(dbConfig)
+
+    return new PostgresEngine(PostgresEngine._createKey, engine)
+  }
+
+  /**
+   * Create a table for saving of vectors to be used with PostgresVectorStore.
+   * 
+   * @param tableName Postgres database table name
+   * @param vectorSize Vector size for the embedding model to be used.
+   * @param schemaName The schema name to store Postgres database table. Default: "public".
+   * @param contentColumn Name of the column to store document content. Default: "content".
+   * @param embeddingColumn Name of the column to store vector embeddings. Default: "embedding".
+   * @param metadataColumns Optional - A list of Columns to create for custom metadata. Default: [].
+   * @param metadataJsonColumn Optional - The column to store extra metadata in JSON format. Default: "langchain_metadata". 
+   * @param idColumn Optional - Column to store ids. Default: "langchain_id" column name with data type UUID. 
+   * @param overwriteExisting Whether to drop existing table. Default: False.
+   * @param storeMetadata Whether to store metadata in the table. Default: True.
+   */
+  async init_vectorstore_table(
+    tableName: string,
+    vectorSize: number,
+    {
+    schemaName  = "public",
+    contentColumn  = "content",
+    embeddingColumn = "embedding",
+    metadataColumns = [],
+    metadataJsonColumn = "langchain_metadata", 
+    idColumn = "langchain_id",
+    overwriteExisting = false,
+    storeMetadata = true
+  }: VectorStoreTableArgs): Promise<void> {
+
+    await this.pool.raw("CREATE EXTENSION IF NOT EXISTS vector")
+
+    if(overwriteExisting) {
+      await this.pool.schema.withSchema(schemaName).dropTableIfExists(tableName);
+    }
+
+    const idDataType = typeof idColumn === "string" ? "UUID" : idColumn.dataType;
+    const idColumnName = typeof idColumn === "string" ? idColumn : idColumn.name;
+
+    let query = `CREATE TABLE ${schemaName}.${tableName}(
+      ${idColumnName} ${idDataType} PRIMARY KEY,
+      ${contentColumn} TEXT NOT NULL,
+      ${embeddingColumn} vector(${vectorSize}) NOT NULL`
+
+    for (const column of metadataColumns) {
+      const nullable = !column.nullable ? "NOT NULL" : "";
+      query += `,\n ${column.name} ${column.dataType} ${nullable}`;
+    }
+
+    if(storeMetadata) {
+      query += `,\n${metadataJsonColumn} JSON`;
+    }
+
+    query += `\n);`
+
+    await this.pool.raw(query)
+  }
+
+  /**
+   * Create a Cloud SQL table to store chat history.
+   * 
+   * @param tableName Table name to store chat history
+   * @param schemaName Schema name to store chat history table
+   */
+
+  async init_chat_history_table(tableName: string, schemaName: string = "public"): Promise<void> {
+    await this.pool.raw(
+      `CREATE TABLE IF NOT EXISTS ${schemaName}.${tableName}(
+      id SERIAL PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      data JSONB NOT NULL,
+      type TEXT NOT NULL);`
+    )
+  }
+
+  /**
    *  Dispose of connection pool
    */
   async closeConnection(): Promise<void> {
     await this.pool.destroy()
-    PostgresEngine.connector.close();
+    if(PostgresEngine.connector !== undefined) {
+     PostgresEngine.connector.close();
+    }
   }
 
   // Just to test the connection to the database
