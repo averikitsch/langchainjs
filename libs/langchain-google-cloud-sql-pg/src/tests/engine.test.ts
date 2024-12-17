@@ -19,6 +19,11 @@ const STORE_METADATA = true;
 describe("PostgresEngine Instance creation", () => {
   let PEInstance: PostgresEngine;
 
+  const poolConfig: knex.Knex.PoolConfig = {
+    min: 0,
+    max: 5
+  }
+
   test('should throw an error if only user or password are passed', async () => {
     const pgArgs: PostgresEngineArgs = {
       user: process.env.DB_USER ?? ""
@@ -134,9 +139,9 @@ describe("PostgresEngine Instance creation", () => {
   });
 
   test('should create a PostgresEngine Instance through from_engine_args using a URL', async () => {
-    const url = process.env.PG_URL ?? "";
+    const url = `postgresql+asyncpg://${process.env.DB_USER}:${process.env.PASSWORD}@${process.env.HOST}:5432/${process.env.DB_NAME}`
 
-    PEInstance = await PostgresEngine.from_engine_args(url);
+    PEInstance = await PostgresEngine.from_engine_args(url, poolConfig);
 
     const {rows} = await PEInstance.testConnection();
     const currentTimestamp = rows[0].currenttimestamp;

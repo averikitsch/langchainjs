@@ -146,9 +146,10 @@ class PostgresEngine {
    * Create a PostgresEngine instance from arguments.
    * 
    * @param url URL use to connect to a database
+   * @param poolConfig Optional - Configuration pool to use in the Knex configuration
    * @returns PostgresEngine instance
    */
-  static async from_engine_args(url: string | knex.Knex.StaticConnectionConfig) {
+  static async from_engine_args(url: string | knex.Knex.StaticConnectionConfig, poolConfig?: knex.Knex.PoolConfig) {
 
     const driver = 'postgresql+asyncpg';
 
@@ -161,6 +162,7 @@ class PostgresEngine {
       connection: url,
       acquireConnectionTimeout: 1000000,
       pool:{
+        ...poolConfig,
         acquireTimeoutMillis: 600000
       }
     };
@@ -222,8 +224,6 @@ class PostgresEngine {
     }
 
     query += `\n);`
-
-    console.log(query)
 
     await this.pool.raw(query)
   }
