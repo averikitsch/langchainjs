@@ -46,6 +46,8 @@ export class Column {
   }
 }
 
+const USER_AGENT = "langchain-google-cloud-sql-pg-js";
+
 class PostgresEngine {
 
   private static _createKey = Symbol();
@@ -110,7 +112,7 @@ class PostgresEngine {
       }
     }
 
-    PostgresEngine.connector = new Connector();
+    PostgresEngine.connector = new Connector({userAgent: USER_AGENT});
     const clientOpts = await PostgresEngine.connector.getOptions({
       instanceConnectionName: `${projectId}:${region}:${instance}`,
       ipType: ipType,
