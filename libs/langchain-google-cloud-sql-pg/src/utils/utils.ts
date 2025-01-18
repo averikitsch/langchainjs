@@ -7,7 +7,7 @@ import { GoogleAuth } from "google-auth-library";
  * @param {GoogleAuth} auth - object to use in finding the associated IAM principal email address.
  * @returns {string} email - email address associated with the current authenticated IAM principal
  */
- export const getIAMPrincipalEmail = async (auth: GoogleAuth): Promise<string> => {
+export const getIAMPrincipalEmail = async (auth: GoogleAuth): Promise<string> => {
   const credentials = await auth.getCredentials();
   
   if('client_email' in credentials && credentials.client_email !== undefined) {
