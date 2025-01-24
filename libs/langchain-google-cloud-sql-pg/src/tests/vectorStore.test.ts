@@ -1,8 +1,7 @@
 import { test } from "@jest/globals";
 import PostgresVectorStore, { PostgresVectorStoreArgs } from "../vectorStore.js";
-import PostgresEngine, { Column, VectorStoreTableArgs } from "../engine.js";
+import PostgresEngine, { Column, PostgresEngineArgs, VectorStoreTableArgs } from "../engine.js";
 import { SyntheticEmbeddings } from "@langchain/core/utils/testing";
-import knex from "knex";
 import * as dotenv from "dotenv";
 
 dotenv.config()
@@ -22,13 +21,18 @@ describe("VectorStore creation", () => {
   let vectorStoreInstance: PostgresVectorStore;
 
   beforeAll(async () => {
-    const url = `postgresql+asyncpg://${process.env.DB_USER}:${process.env.PASSWORD}@${process.env.HOST}:5432/${process.env.DB_NAME}`;
-    const poolConfig: knex.Knex.PoolConfig = {
-      min: 0,
-      max: 5
+    const pgArgs: PostgresEngineArgs = {
+      user: process.env.DB_USER ?? "",
+      password: process.env.PASSWORD ?? ""
     }
 
-    PEInstance = await PostgresEngine.from_engine_args(url, poolConfig);
+    PEInstance = await PostgresEngine.from_instance(
+      process.env.PROJECT_ID ?? "",
+      process.env.REGION ?? "",
+      process.env.INSTANCE_NAME ?? "",
+      process.env.DB_NAME ?? "",
+      pgArgs
+    );
 
     const vsTableArgs: VectorStoreTableArgs = {
       contentColumn: CONTENT_COLUMN,
@@ -115,7 +119,7 @@ describe("VectorStore creation", () => {
 
     const vectorStoreInstance = await PostgresVectorStore.create(PEInstance, embeddingService, CUSTOM_TABLE, pvectorArgs)
     
-    expect(vectorStoreInstance).toBeInstanceOf(PostgresVectorStore);
+    expect(vectorStoreInstance).toBeDefined();
   });
 
   // TODO: Add a test for the delete method

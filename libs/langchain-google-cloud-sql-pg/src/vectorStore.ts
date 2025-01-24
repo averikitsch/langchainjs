@@ -1,6 +1,8 @@
 import { Embeddings } from "@langchain/core/embeddings";
 import PostgresEngine from "./engine.js";
 import { DEFAULT_DISTANCE_STRATEGY, DistanceStrategy, QueryOptions } from "./indexes.js";
+import { VectorStore } from "@langchain/core/vectorstores";
+import { DocumentInterface } from "@langchain/core/documents";
 
 export interface PostgresVectorStoreArgs {
   schemaName?: string,
@@ -39,10 +41,10 @@ export interface PostgresVectorStoreArgs {
  * @returns PostgresVectorStore instance.
  */
 
-class PostgresVectorStore {
+class PostgresVectorStore extends VectorStore{
   private static _createKey = Symbol();
   engine: PostgresEngine;
-  embeddingService: Embeddings;
+  embeddings: Embeddings;
   tableName: string;
   schemaName: string;
   contentColumn: string;
@@ -60,7 +62,7 @@ class PostgresVectorStore {
   constructor(
     key: Symbol, 
     engine: PostgresEngine,
-    embeddingService: Embeddings,
+    embeddings: Embeddings,
     tableName: string,
     schemaName: string,
     contentColumn: string,
@@ -74,12 +76,14 @@ class PostgresVectorStore {
     fetch_k: Number,
     lambdaMult: Number,
     indexQueryOptions: QueryOptions) {
+    
+    super(embeddings, {}); // TODO: pass the dbConfig: - Configuration settings for the database or storage system.
 
     if(key !== PostgresVectorStore._createKey) {
       throw new Error("Only create class through 'create' method!")
     }
     this.engine = engine;
-    this.embeddingService = embeddingService;
+    this.embeddings = embeddings;
     this.tableName = tableName;
     this.schemaName = schemaName;
     this.contentColumn = contentColumn;
@@ -97,7 +101,7 @@ class PostgresVectorStore {
 
   static async create(
     engine: PostgresEngine,
-    embeddingService: Embeddings,
+    embeddings: Embeddings,
     tableName: string,
     {
       schemaName = "public",
@@ -171,7 +175,7 @@ class PostgresVectorStore {
     return new PostgresVectorStore(
         PostgresVectorStore._createKey,
         engine,
-        embeddingService,
+        embeddings,
         tableName,
         schemaName,
         contentColumn,
@@ -188,14 +192,31 @@ class PostgresVectorStore {
       )
   }
 
-  async delete(ids?: any[] | undefined): Promise<Boolean> {
-    if(ids === undefined) return false;
-    
-    const idList = ids.map((id: any) => `'${id}'`).join(", ");
+  _vectorstoreType(): string { // TODO: implement methods
+    //throw new Error("Method not implemented.");
+    return ""
+  }
+  addVectors(vectors: number[][], documents: DocumentInterface[], options?: { [x: string]: any; }): Promise<string[] | void> {
+    throw new Error("Method not implemented.");
+  }
+  addDocuments(documents: DocumentInterface[], options?: { [x: string]: any; }): Promise<string[] | void> {
+    throw new Error("Method not implemented.");
+  }
+  similaritySearchVectorWithScore(query: number[], k: number, filter?: this["FilterType"] | undefined): Promise<[DocumentInterface, number][]> {
+    throw new Error("Method not implemented.");
+  }
+
+  /**
+   * Deletes documents from the vector store based on the specified parameters.
+   *
+   * @param _params - Flexible key-value pairs defining conditions for document deletion.
+   * @returns A promise that resolves once the deletion is complete.
+   */
+  async delete(_params?: Record<string, any>): Promise<void> { // TODO: test this method
+    if(_params === undefined) return;
+    const idList = _params.map((id: any) => `'${id}'`).join(", ");
     const query = `DELETE FROM "${this.schemaName}"."${this.tableName}" WHERE ${this.idColumn} in (${idList})`;
     await this.engine.pool.raw(query);
-
-    return true;
   }
 }
 
