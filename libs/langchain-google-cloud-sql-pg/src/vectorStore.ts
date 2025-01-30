@@ -1,4 +1,4 @@
-import { Embeddings } from "@langchain/core/embeddings";
+import { Embeddings, EmbeddingsInterface } from "@langchain/core/embeddings";
 import PostgresEngine from "./engine.js";
 import { DEFAULT_DISTANCE_STRATEGY, DistanceStrategy, QueryOptions } from "./indexes.js";
 import { VectorStore } from "@langchain/core/vectorstores";
@@ -10,7 +10,7 @@ export interface PostgresVectorStoreArgs {
   embeddingColumn?: string,
   metadataColumns?: Array<string>,
   idColumn?: string,
-  distance_strategy?: DistanceStrategy,
+  distanceStrategy?: DistanceStrategy,
   k?: Number,
   fetch_k?: Number,
   lambdaMult?: Number,
@@ -19,32 +19,9 @@ export interface PostgresVectorStoreArgs {
   indexQueryOptions?: QueryOptions // optional
 }
 
-/**
- * Create a new PostgresVectorStore instance.
- * 
- * @param {PostgresEngine} engine Required - Connection pool engine for managing connections to Cloud SQL for PostgreSQL database.
- * @param {Embeddings} embedding_service Required - Text embedding model to use.
- * @param {string} table_name Required - Name of an existing table or table to be created.
- * @param {string} schema_name  Database schema name of the table. Defaults to "public".
- * @param {string} content_column Column that represent a Document's page_content. Defaults to "content".
- * @param {string} embedding_column Column for embedding vectors. The embedding is generated from the document value. Defaults to "embedding".
- * @param {Array<string} metadata_columns Column(s) that represent a document's metadata.
- * @param {Array<string} ignore_metadata_columns Optional - Column(s) to ignore in pre-existing tables for a document's metadata. Can not be used with metadata_columns.
- * @param {string} id_column Column that represents the Document's id. Defaults to "langchain_id".
- * @param {string} metadata_json_column Optional - Column to store metadata as JSON. Defaults to "langchain_metadata".
- * @param {DistanceStrategy} distance_strategy Distance strategy to use for vector similarity search. Defaults to COSINE_DISTANCE.
- * @param {Number} k Number of Documents to return from search. Defaults to 4.
- * @param {Number} fetch_k Number of Documents to fetch to pass to MMR algorithm.
- * @param {Number} lambda_mult Number between 0 and 1 that determines the degree of diversity among the results with 0 corresponding to maximum diversity and 1 to minimum diversity. Defaults to 0.5.
- * @param {QueryOptions} index_query_options Optional - Index query option.
- * 
- * @returns PostgresVectorStore instance.
- */
-
-class PostgresVectorStore extends VectorStore{
-  private static _createKey = Symbol();
+class PostgresVectorStore extends VectorStore {
   engine: PostgresEngine;
-  embeddings: Embeddings;
+  embeddings: EmbeddingsInterface;
   tableName: string;
   schemaName: string;
   contentColumn: string;
@@ -53,52 +30,42 @@ class PostgresVectorStore extends VectorStore{
   ignoreMetadataColumns: Array<string>;
   idColumn: string;
   metadataJsonColumn: string;
-  distance_strategy: DistanceStrategy;
+  distanceStrategy: DistanceStrategy;
   k: Number;
   fetch_k: Number;
   lambdaMult: Number;
   indexQueryOptions: QueryOptions;
 
-  constructor(
-    key: Symbol, 
-    engine: PostgresEngine,
-    embeddings: Embeddings,
-    tableName: string,
-    schemaName: string,
-    contentColumn: string,
-    embeddingColumn: string,
-    metadataColumns: Array<string>,
-    ignoreMetadataColumns: Array<string>,
-    idColumn: string,
-    metadataJsonColumn: string,
-    distance_strategy: DistanceStrategy,
-    k: Number,
-    fetch_k: Number,
-    lambdaMult: Number,
-    indexQueryOptions: QueryOptions) {
-    
-    super(embeddings, {}); // TODO: pass the dbConfig: - Configuration settings for the database or storage system.
-
-    if(key !== PostgresVectorStore._createKey) {
-      throw new Error("Only create class through 'create' method!")
-    }
-    this.engine = engine;
+  /**
+   * Initializes a new vector store with embeddings and database configuration.
+   *
+   * @param embeddings - Instance of `EmbeddingsInterface` used to embed queries.
+   * @param dbConfig - Configuration settings for the database or storage system.
+   */
+   constructor(embeddings: EmbeddingsInterface, dbConfig: Record<string, any>) {
+    super(embeddings, dbConfig);
     this.embeddings = embeddings;
-    this.tableName = tableName;
-    this.schemaName = schemaName;
-    this.contentColumn = contentColumn;
-    this.embeddingColumn = embeddingColumn;
-    this.metadataColumns = metadataColumns;
-    this.ignoreMetadataColumns = ignoreMetadataColumns;
-    this.idColumn = idColumn;
-    this.metadataJsonColumn = metadataJsonColumn;
-    this.distance_strategy = distance_strategy;
-    this.k = k;
-    this.fetch_k = fetch_k;
-    this.lambdaMult = lambdaMult;
-    this.indexQueryOptions = indexQueryOptions;
   }
 
+  /**
+   * Create a new PostgresVectorStore instance.
+   * @param {PostgresEngine} engine Required - Connection pool engine for managing connections to Cloud SQL for PostgreSQL database.
+   * @param {Embeddings} embeddings Required - Text embedding model to use.
+   * @param {string} tableName Required - Name of an existing table or table to be created.
+   * @param {string} schemaName Database schema name of the table. Defaults to "public".
+   * @param {string} contentColumn Column that represent a Document's page_content. Defaults to "content".
+   * @param {string} embeddingColumn Column for embedding vectors. The embedding is generated from the document value. Defaults to "embedding".
+   * @param {Array<string>} metadataColumns Column(s) that represent a document's metadata.
+   * @param {Array<string>} ignoreMetadataColumns Optional - Column(s) to ignore in pre-existing tables for a document's metadata. Can not be used with metadata_columns.
+   * @param {string} idColumn Column that represents the Document's id. Defaults to "langchain_id".
+   * @param {string} metadataJsonColumn Optional - Column to store metadata as JSON. Defaults to "langchain_metadata".
+   * @param {DistanceStrategy} distanceStrategy Distance strategy to use for vector similarity search. Defaults to COSINE_DISTANCE.
+   * @param {Number} k Number of Documents to return from search. Defaults to 4.
+   * @param {Number} fetch_k Number of Documents to fetch to pass to MMR algorithm.
+   * @param {Number} lambdaMult Number between 0 and 1 that determines the degree of diversity among the results with 0 corresponding to maximum diversity and 1 to minimum diversity. Defaults to 0.5.
+   * @param {QueryOptions} indexQueryOptions Optional - Index query option.
+   * @returns PostgresVectorStore instance.
+   */
   static async create(
     engine: PostgresEngine,
     embeddings: Embeddings,
@@ -111,7 +78,7 @@ class PostgresVectorStore extends VectorStore{
       ignoreMetadataColumns,
       idColumn = "langchain_id",
       metadataJsonColumn = "langchain_metadata",
-      distance_strategy = DEFAULT_DISTANCE_STRATEGY,
+      distanceStrategy = DEFAULT_DISTANCE_STRATEGY,
       k = 4,
       fetch_k = 20,
       lambdaMult = 0.5,
@@ -173,28 +140,28 @@ class PostgresVectorStore extends VectorStore{
       metadataColumns = Object.keys(allColumns);
     } 
     return new PostgresVectorStore(
-        PostgresVectorStore._createKey,
+      embeddings,
+      {
         engine,
-        embeddings,
         tableName,
         schemaName,
         contentColumn,
         embeddingColumn,
         metadataColumns,
-        ignoreMetadataColumns!,
+        ignoreMetadataColumns,
         idColumn,
         metadataJsonColumn,
-        distance_strategy,
+        distanceStrategy,
         k,
         fetch_k,
         lambdaMult,
-        indexQueryOptions!
-      )
+        indexQueryOptions
+      }
+    )
   }
 
-  _vectorstoreType(): string { // TODO: implement methods
-    //throw new Error("Method not implemented.");
-    return ""
+  _vectorstoreType(): string {
+    return "cloudsqlpostgresql"
   }
   addVectors(vectors: number[][], documents: DocumentInterface[], options?: { [x: string]: any; }): Promise<string[] | void> {
     throw new Error("Method not implemented.");
