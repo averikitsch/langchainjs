@@ -4,6 +4,8 @@ import { DEFAULT_DISTANCE_STRATEGY, DistanceStrategy, QueryOptions } from "./ind
 import { VectorStore } from "@langchain/core/vectorstores";
 import { DocumentInterface } from "@langchain/core/documents";
 
+type Metadata = Record<string, unknown>;
+
 export interface PostgresVectorStoreArgs {
   schemaName?: string,
   contentColumn?: string,
@@ -12,7 +14,7 @@ export interface PostgresVectorStoreArgs {
   idColumn?: string,
   distanceStrategy?: DistanceStrategy,
   k?: Number,
-  fetch_k?: Number,
+  fetchK?: Number,
   lambdaMult?: Number,
   ignoreMetadataColumns?: Array<string>, //optional
   metadataJsonColumn?: string, // optional
@@ -20,6 +22,8 @@ export interface PostgresVectorStoreArgs {
 }
 
 class PostgresVectorStore extends VectorStore {
+  declare FilterType: Metadata;
+
   engine: PostgresEngine;
   embeddings: EmbeddingsInterface;
   tableName: string;
@@ -32,7 +36,7 @@ class PostgresVectorStore extends VectorStore {
   metadataJsonColumn: string;
   distanceStrategy: DistanceStrategy;
   k: Number;
-  fetch_k: Number;
+  fetchK: Number;
   lambdaMult: Number;
   indexQueryOptions: QueryOptions;
 
@@ -45,6 +49,20 @@ class PostgresVectorStore extends VectorStore {
    constructor(embeddings: EmbeddingsInterface, dbConfig: Record<string, any>) {
     super(embeddings, dbConfig);
     this.embeddings = embeddings;
+    this.engine = dbConfig.engine;
+    this.tableName = dbConfig.tableName;
+    this.schemaName = dbConfig.schemaName;
+    this.contentColumn = dbConfig.contentColumn;
+    this.embeddingColumn = dbConfig.embeddingColumn;
+    this.metadataColumns = dbConfig.metadataColumns;
+    this.ignoreMetadataColumns = dbConfig.ignoreMetadataColumns;
+    this.idColumn = dbConfig.idColumn;
+    this.metadataJsonColumn = dbConfig.metadataJsonColumn;
+    this.distanceStrategy = dbConfig.distance_strategy;
+    this.k = dbConfig.k;
+    this.fetchK = dbConfig.fetchK;
+    this.lambdaMult = dbConfig.lambdaMult;
+    this.indexQueryOptions = dbConfig.indexQueryOptions;
   }
 
   /**
@@ -61,7 +79,7 @@ class PostgresVectorStore extends VectorStore {
    * @param {string} metadataJsonColumn Optional - Column to store metadata as JSON. Defaults to "langchain_metadata".
    * @param {DistanceStrategy} distanceStrategy Distance strategy to use for vector similarity search. Defaults to COSINE_DISTANCE.
    * @param {Number} k Number of Documents to return from search. Defaults to 4.
-   * @param {Number} fetch_k Number of Documents to fetch to pass to MMR algorithm.
+   * @param {Number} fetchK Number of Documents to fetch to pass to MMR algorithm.
    * @param {Number} lambdaMult Number between 0 and 1 that determines the degree of diversity among the results with 0 corresponding to maximum diversity and 1 to minimum diversity. Defaults to 0.5.
    * @param {QueryOptions} indexQueryOptions Optional - Index query option.
    * @returns PostgresVectorStore instance.
@@ -80,7 +98,7 @@ class PostgresVectorStore extends VectorStore {
       metadataJsonColumn = "langchain_metadata",
       distanceStrategy = DEFAULT_DISTANCE_STRATEGY,
       k = 4,
-      fetch_k = 20,
+      fetchK = 20,
       lambdaMult = 0.5,
       indexQueryOptions
     }: PostgresVectorStoreArgs
@@ -153,7 +171,7 @@ class PostgresVectorStore extends VectorStore {
         metadataJsonColumn,
         distanceStrategy,
         k,
-        fetch_k,
+        fetchK,
         lambdaMult,
         indexQueryOptions
       }
@@ -174,14 +192,15 @@ class PostgresVectorStore extends VectorStore {
   }
 
   /**
-   * Deletes documents from the vector store based on the specified parameters.
+   * Deletes documents from the vector store based on the specified ids.
    *
-   * @param _params - Flexible key-value pairs defining conditions for document deletion.
+   * @param params - Flexible key-value pairs defining conditions for document deletion.
+   * @param ids -  Optional: Property of {params} that contains the array of ids to be deleted
    * @returns A promise that resolves once the deletion is complete.
    */
-  async delete(_params?: Record<string, any>): Promise<void> { // TODO: test this method
-    if(_params === undefined) return;
-    const idList = _params.map((id: any) => `'${id}'`).join(", ");
+  async delete(params: {ids?: string[]}): Promise<void> { // TODO: test this method
+    if(params.ids === undefined) return;
+    const idList = params.ids.map((id: any) => `'${id}'`).join(", ");
     const query = `DELETE FROM "${this.schemaName}"."${this.tableName}" WHERE ${this.idColumn} in (${idList})`;
     await this.engine.pool.raw(query);
   }
