@@ -10,13 +10,13 @@ dotenv.config()
 
 const CUSTOM_TABLE = "test_table_custom";
 const VECTOR_SIZE = 768;
-const ID_COLUMN="uuid";
+const ID_COLUMN = "uuid";
 const CONTENT_COLUMN = "my_content";
 const EMBEDDING_COLUMN = "my_embedding";
 const METADATA_COLUMNS = [new Column("page", "TEXT"), new Column("source", "TEXT")];
 const STORE_METADATA = true;
 
-const embeddingService = new SyntheticEmbeddings({vectorSize: VECTOR_SIZE});
+const embeddingService = new SyntheticEmbeddings({ vectorSize: VECTOR_SIZE });
 const texts = ["foo", "bar", "baz"];
 const metadatas = [];
 const docs: DocumentInterface[] = [];
@@ -30,7 +30,7 @@ const pgArgs: PostgresEngineArgs = {
 const vsTableArgs: VectorStoreTableArgs = {
   contentColumn: CONTENT_COLUMN,
   embeddingColumn: EMBEDDING_COLUMN,
-  idColumn: ID_COLUMN, 
+  idColumn: ID_COLUMN,
   metadataColumns: METADATA_COLUMNS,
   storeMetadata: STORE_METADATA,
   overwriteExisting: true
@@ -45,8 +45,8 @@ const pvectorArgs: PostgresVectorStoreArgs = {
 }
 
 for (let i = 0; i < texts.length; i++) {
-  metadatas.push({"page": i.toString(), "source": "google.com"});
-  docs.push(new Document({pageContent: texts[i], metadata: metadatas[i]}));
+  metadatas.push({ "page": i.toString(), "source": "google.com" });
+  docs.push(new Document({ pageContent: texts[i], metadata: metadatas[i] }));
   embeddings.push(embeddingService.embedQuery(texts[i]));
 }
 
@@ -66,7 +66,7 @@ describe("VectorStore creation", () => {
     await PEInstance.pool.raw(`DROP TABLE IF EXISTS ${CUSTOM_TABLE}`)
     await PEInstance.init_vectorstore_table(CUSTOM_TABLE, VECTOR_SIZE, vsTableArgs);
   });
-  
+
   test('should throw an error if metadataColumns and ignoreMetadataColumns are defined', async () => {
     const pvectorArgs: PostgresVectorStoreArgs = {
       metadataColumns: ["page", "source"],
@@ -138,7 +138,7 @@ describe("VectorStore creation", () => {
     }
 
     const vectorStoreInstance = await PostgresVectorStore.create(PEInstance, embeddingService, CUSTOM_TABLE, pvectorArgs)
-    
+
     expect(vectorStoreInstance).toBeDefined();
   });
 
@@ -176,14 +176,14 @@ describe("VectorStore addDocuments method", () => {
 
   test("should return the same length of results as the added documents {3}", async () => {
     const ids = Array.from(texts).map(() => uuidv4());
-    await vectorStoreInstance.addDocuments(docs, ids);
-    const {rows} = await PEInstance.pool.raw(`SELECT * FROM "${CUSTOM_TABLE}"`);
+    await vectorStoreInstance.addDocuments(docs, { ids });
+    const { rows } = await PEInstance.pool.raw(`SELECT * FROM "${CUSTOM_TABLE}"`);
     expect(rows).toHaveLength(3);
   })
 
   test("should return the same length of results as the added documents {3}, without passing ids", async () => {
     await vectorStoreInstance.addDocuments(docs);
-    const {rows} = await PEInstance.pool.raw(`SELECT * FROM "${CUSTOM_TABLE}"`);
+    const { rows } = await PEInstance.pool.raw(`SELECT * FROM "${CUSTOM_TABLE}"`);
     expect(rows).toHaveLength(3);
   })
 

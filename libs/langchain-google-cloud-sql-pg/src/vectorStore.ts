@@ -48,7 +48,7 @@ class PostgresVectorStore extends VectorStore {
    * @param embeddings - Instance of `EmbeddingsInterface` used to embed queries.
    * @param dbConfig - Configuration settings for the database or storage system.
    */
-   constructor(embeddings: EmbeddingsInterface, dbConfig: Record<string, any>) {
+  constructor(embeddings: EmbeddingsInterface, dbConfig: Record<string, any>) {
     super(embeddings, dbConfig);
     this.embeddings = embeddings;
     this.engine = dbConfig.engine;
@@ -106,50 +106,50 @@ class PostgresVectorStore extends VectorStore {
     }: PostgresVectorStoreArgs
   ): Promise<PostgresVectorStore> {
 
-    if(metadataColumns !== undefined && ignoreMetadataColumns !== undefined) {
+    if (metadataColumns !== undefined && ignoreMetadataColumns !== undefined) {
       throw "Can not use both metadata_columns and ignore_metadata_columns.";
     }
 
-    const {rows} = await engine.pool.raw(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${tableName}' AND table_schema = '${schemaName}'`);
-    let columns: {[key: string]: any} = {};
+    const { rows } = await engine.pool.raw(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${tableName}' AND table_schema = '${schemaName}'`);
+    let columns: { [key: string]: any } = {};
 
     for (const index in rows) {
       const row = rows[index];
       columns[row["column_name"]] = row["data_type"]
     }
 
-    if(!columns.hasOwnProperty(idColumn)){
+    if (!columns.hasOwnProperty(idColumn)) {
       throw `Id column: ${idColumn}, does not exist.`;
     }
 
-    if(!columns.hasOwnProperty(contentColumn)){
+    if (!columns.hasOwnProperty(contentColumn)) {
       throw `Content column: ${contentColumn}, does not exist.`;
     }
 
     const contentType = columns[contentColumn];
 
-    if(contentType !== "text" && !contentType.includes("char")) {
+    if (contentType !== "text" && !contentType.includes("char")) {
       throw `Content column: ${contentColumn}, is type: ${contentType}. It must be a type of character string.`
     }
 
-    if(!columns.hasOwnProperty(embeddingColumn)) {
+    if (!columns.hasOwnProperty(embeddingColumn)) {
       throw `Embedding column: ${embeddingColumn}, does not exist.`
     }
-        
-    if(columns[embeddingColumn] !== "USER-DEFINED") {
+
+    if (columns[embeddingColumn] !== "USER-DEFINED") {
       throw `Embedding column: ${embeddingColumn} is not of type Vector.`
     }
 
     metadataJsonColumn = columns.hasOwnProperty(metadataJsonColumn) ? metadataJsonColumn : "";
 
     for (const column of metadataColumns) {
-      if(!columns.hasOwnProperty(column)) {
+      if (!columns.hasOwnProperty(column)) {
         throw `Metadata column: ${column}, does not exist.`
       }
     }
 
     const allColumns = columns;
-    if(ignoreMetadataColumns !== undefined && ignoreMetadataColumns.length > 0) {
+    if (ignoreMetadataColumns !== undefined && ignoreMetadataColumns.length > 0) {
       for (const column of ignoreMetadataColumns) {
         delete allColumns[column];
       }
@@ -158,7 +158,7 @@ class PostgresVectorStore extends VectorStore {
       delete allColumns[contentColumn];
       delete allColumns[embeddingColumn];
       metadataColumns = Object.keys(allColumns);
-    } 
+    }
     return new PostgresVectorStore(
       embeddings,
       {
@@ -180,22 +180,17 @@ class PostgresVectorStore extends VectorStore {
     )
   }
 
-  async addEmbeddings(
-    texts: Iterable<string>,
-    embeddings: number[][], 
-    metadatas?: Array<Record<string, any>> | null,
-    ids?: { [x: string]: any; },
-  ): Promise<{[x: string]: any;}> {
-
-    if(!ids) {
-      ids = Array.from(texts).map(() => uuidv4());
-    }
-    if(!metadatas) {
-      metadatas = Array.from(texts).map(() => new Object());
+  async addVectors(vectors: number[][], documents: DocumentInterface[], options?: { metadatas?: Array<Record<string, any>> | null, ids?: string[] }): Promise<string[] | void> {
+    if (options && (!options.ids || options.ids.length === 0)) {
+      options.ids = Array.from(documents).map(() => uuidv4());
     }
 
-    const tuples = customZip(ids, texts, embeddings, metadatas)
-    
+    if (options && !options.metadatas) {
+      options.metadatas = Array.from(documents).map(() => new Object());
+    }
+
+    const tuples = customZip(options?.ids, documents, vectors, options?.metadatas);
+
     // Insert embeddings
     for (const [id, content, embedding, metadata] of tuples) {
       const metadataColNames = this.metadataColumns.length > 0 ? this.metadataColumns.join(",") : "";
@@ -211,9 +206,9 @@ class PostgresVectorStore extends VectorStore {
       // Add metadata
       let extra = metadata;
       for (const metadataColumn of this.metadataColumns) {
-        if(metadata.hasOwnProperty(metadataColumn)){
+        if (metadata.hasOwnProperty(metadataColumn)) {
           valuesStmt += `, :${metadataColumn}`
-          values[metadataColumn as keyof typeof values] = metadata[metadataColumn] //
+          values[metadataColumn as keyof typeof values] = metadata[metadataColumn]
           delete extra[metadataColumn]
         } else {
           valuesStmt += " ,null"
@@ -222,34 +217,22 @@ class PostgresVectorStore extends VectorStore {
 
       // Add JSON column and/or close statement
       stmt += this.metadataJsonColumn ? `, ${this.metadataJsonColumn})` : ")";
-      if(this.metadataJsonColumn) {
+      if (this.metadataJsonColumn) {
         valuesStmt += ", :extra)";
-        Object.assign(values, {"extra": JSON.stringify(extra)})
+        Object.assign(values, { "extra": JSON.stringify(extra) })
       } else {
-        valuesStmt += ")" 
+        valuesStmt += ")"
       }
 
       const query = stmt + valuesStmt;
       await this.engine.pool.raw(query, values)
     }
 
-    return ids;
-  }
-
-  async addTexts(texts: Iterable<string>, metadatas?: Array<Record<string, any>> | null, ids?: { [x: string]: any; }): Promise<{[x: string]: any;}> {
-    const documents = Array.from(texts)
-    const embeddings = await this.embeddings.embedDocuments(documents);
-    ids = await this.addEmbeddings(texts, embeddings, metadatas, ids);
-
-    return ids;
+    return options?.ids;
   }
 
   _vectorstoreType(): string {
     return "cloudsqlpostgresql"
-  }
-  
-  addVectors(vectors: number[][], documents: DocumentInterface[], options?: { [x: string]: any; }): Promise<string[] | void> {
-    throw new Error("Method not implemented.");
   }
 
   /**
@@ -261,22 +244,20 @@ class PostgresVectorStore extends VectorStore {
    * @returns A promise resolving to an array of document IDs or void, based on implementation.
    * @abstract
    */
-  
   async addDocuments(documents: DocumentInterface[], options?: { [x: string]: any; }): Promise<string[] | void> {
     let texts = [];
     let metadatas = [];
-    
+
     for (const doc of documents) {
       texts.push(doc.pageContent)
       metadatas.push(doc.metadata)
     }
-    
-    const results = await this.addTexts(texts, metadatas, options) 
-    const ids = Object.values(results).filter(
-      (value): value is string[] => Array.isArray(value) && value.every(item => typeof item === "string")
-    );
 
-    return ids.length > 0 ? ids.flat() : undefined;
+    const ids = options?.hasOwnProperty('ids') ? options.ids : [];
+    const embeddings = await this.embeddings.embedDocuments(texts);
+    const results = await this.addVectors(embeddings, documents, { metadatas, ids });
+
+    return results;
   }
 
   similaritySearchVectorWithScore(query: number[], k: number, filter?: this["FilterType"] | undefined): Promise<[DocumentInterface, number][]> {
@@ -290,8 +271,8 @@ class PostgresVectorStore extends VectorStore {
    * @param ids -  Optional: Property of {params} that contains the array of ids to be deleted
    * @returns A promise that resolves once the deletion is complete.
    */
-  async delete(params: {ids?: string[]}): Promise<void> { // TODO: test this method
-    if(params.ids === undefined) return;
+  async delete(params: { ids?: string[] }): Promise<void> { // TODO: test this method
+    if (params.ids === undefined) return;
     const idList = params.ids.map((id: any) => `'${id}'`).join(", ");
     const query = `DELETE FROM "${this.schemaName}"."${this.tableName}" WHERE ${this.idColumn} in (${idList})`;
     await this.engine.pool.raw(query);
