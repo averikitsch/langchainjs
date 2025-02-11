@@ -198,7 +198,7 @@ class PostgresVectorStore extends VectorStore {
       let stmt = `INSERT INTO "${this.schemaName}"."${this.tableName}"(${this.idColumn}, ${this.contentColumn}, ${this.embeddingColumn}, ${metadataColNames}`
       let values = {
         id: id,
-        content: content,
+        content: content.pageContent,
         embedding: `[${embedding.toString()}]`
       }
       let valuesStmt = " VALUES (:id, :content, :embedding";
