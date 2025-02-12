@@ -1,6 +1,6 @@
 import { Embeddings, EmbeddingsInterface } from "@langchain/core/embeddings";
 import { VectorStore } from "@langchain/core/vectorstores";
-import { DocumentInterface } from "@langchain/core/documents";
+import { DocumentInterface, Document } from "@langchain/core/documents";
 import { v4 as uuidv4 } from "uuid";
 import { DEFAULT_DISTANCE_STRATEGY, DistanceStrategy, QueryOptions } from "./indexes.js";
 import PostgresEngine from "./engine.js";
@@ -180,55 +180,68 @@ class PostgresVectorStore extends VectorStore {
     )
   }
 
-  async addVectors(vectors: number[][], documents: DocumentInterface[], options?: { metadatas?: Array<Record<string, any>> | null, ids?: string[] }): Promise<string[] | void> {
-    if (options && (!options.ids || options.ids.length === 0)) {
-      options.ids = Array.from(documents).map(() => uuidv4());
-    }
+  async addVectors(vectors: number[][], documents: Document[], options?: { ids?: string[] }): Promise<string[] | void> {
+    let ids: string[] = [];
+    let metadatas: Record<string, any>[] = []
 
-    if (options && !options.metadatas) {
-      options.metadatas = Array.from(documents).map(() => new Object());
-    }
-
-    const tuples = customZip(options?.ids, documents, vectors, options?.metadatas);
-
-    // Insert embeddings
-    for (const [id, content, embedding, metadata] of tuples) {
-      const metadataColNames = this.metadataColumns.length > 0 ? this.metadataColumns.join(",") : "";
-
-      let stmt = `INSERT INTO "${this.schemaName}"."${this.tableName}"(${this.idColumn}, ${this.contentColumn}, ${this.embeddingColumn}, ${metadataColNames}`
-      let values = {
-        id: id,
-        content: content.pageContent,
-        embedding: `[${embedding.toString()}]`
-      }
-      let valuesStmt = " VALUES (:id, :content, :embedding";
-
-      // Add metadata
-      let extra = metadata;
-      for (const metadataColumn of this.metadataColumns) {
-        if (metadata.hasOwnProperty(metadataColumn)) {
-          valuesStmt += `, :${metadataColumn}`
-          values[metadataColumn as keyof typeof values] = metadata[metadataColumn]
-          delete extra[metadataColumn]
+    if (options && options.ids && options.ids.length === documents.length) {
+      ids = options.ids;
+    } else {
+      documents.forEach(document => {
+        if(document.id !== undefined) {
+          ids.push(document.id);
         } else {
-          valuesStmt += " ,null"
+          ids.push(uuidv4());
         }
-      }
-
-      // Add JSON column and/or close statement
-      stmt += this.metadataJsonColumn ? `, ${this.metadataJsonColumn})` : ")";
-      if (this.metadataJsonColumn) {
-        valuesStmt += ", :extra)";
-        Object.assign(values, { "extra": JSON.stringify(extra) })
-      } else {
-        valuesStmt += ")"
-      }
-
-      const query = stmt + valuesStmt;
-      await this.engine.pool.raw(query, values)
+      });
     }
 
-    return options?.ids;
+    documents.forEach(document => {
+      metadatas.push(document.metadata)
+    });
+
+    if (documents.length === vectors.length) {
+      const tuples = customZip(ids, documents, vectors, metadatas);
+  
+      // Insert embeddings
+      for (const [id, document, embedding, metadata] of tuples) {
+        const metadataColNames = this.metadataColumns.length > 0 ? `"${this.metadataColumns.join("\",\"")}"` : "";
+  
+        let stmt = `INSERT INTO "${this.schemaName}"."${this.tableName}"("${this.idColumn}", "${this.contentColumn}", "${this.embeddingColumn}", ${metadataColNames}`
+        let values: { [key: string]: any } = {
+          id: id,
+          content: document.pageContent,
+          embedding: `[${embedding.toString()}]`
+        }
+        let valuesStmt = " VALUES (:id, :content, :embedding";
+  
+        // Add metadata
+        let extra = metadata;
+        for (const metadataColumn of this.metadataColumns) {
+          if (metadata.hasOwnProperty(metadataColumn)) {
+            valuesStmt += `, :${metadataColumn}`;
+            values[metadataColumn] = metadata[metadataColumn]
+            delete extra[metadataColumn]
+          } else {
+            valuesStmt += " ,null"
+          }
+        }
+  
+        // Add JSON column and/or close statement
+        stmt += this.metadataJsonColumn ? `, ${this.metadataJsonColumn})` : ")";
+        if (this.metadataJsonColumn) {
+          valuesStmt += ", :extra)";
+          Object.assign(values, { "extra": JSON.stringify(extra) })
+        } else {
+          valuesStmt += ")"
+        }
+  
+        const query = stmt + valuesStmt;
+        await this.engine.pool.raw(query, values)
+      }
+  
+      return options?.ids;
+    }
   }
 
   _vectorstoreType(): string {
@@ -244,18 +257,15 @@ class PostgresVectorStore extends VectorStore {
    * @returns A promise resolving to an array of document IDs or void, based on implementation.
    * @abstract
    */
-  async addDocuments(documents: DocumentInterface[], options?: { [x: string]: any; }): Promise<string[] | void> {
+  async addDocuments(documents: Document[], options?: { ids?: string[] }): Promise<string[] | void> {
     let texts = [];
-    let metadatas = [];
 
     for (const doc of documents) {
       texts.push(doc.pageContent)
-      metadatas.push(doc.metadata)
     }
 
-    const ids = options?.hasOwnProperty('ids') ? options.ids : [];
     const embeddings = await this.embeddings.embedDocuments(texts);
-    const results = await this.addVectors(embeddings, documents, { metadatas, ids });
+    const results = await this.addVectors(embeddings, documents, options);
 
     return results;
   }
