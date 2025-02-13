@@ -10,6 +10,7 @@ dotenv.config()
 const USER_AGENT = "langchain-google-cloud-sql-pg-js";
 const CUSTOM_TABLE = "test_table_custom";
 const CHAT_MSG_TABLE = "test_message_table";
+const DOCUMENT_TABLE = "test_document_table";
 const VECTOR_SIZE = 768;
 const ID_COLUMN="uuid";
 const CONTENT_COLUMN = "my_content";
@@ -221,9 +222,29 @@ describe('PostgresEngine - table initialization', () => {
     });
   })
 
+  test('should create the document table',async () => {
+    await PEInstance.init_document_table(DOCUMENT_TABLE);
+
+    const query = `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${DOCUMENT_TABLE}';`
+    const expected = [
+      {'column_name': 'id', 'data_type': 'integer'},
+      {'column_name': 'metadata', 'data_type': 'jsonb'},
+      {'column_name': 'content', 'data_type': 'text'},
+      {'column_name': 'session_id', 'data_type': 'text'},
+      {'column_name': 'type', 'data_type': 'text'},
+    ]
+
+    const {rows} = await PEInstance.pool.raw(query);
+
+    rows.forEach((row: any, index: number) => {
+      expect(row).toMatchObject(expected[index])
+    });
+  })
+
   afterAll(async () => {
     await PEInstance.pool.raw(`DROP TABLE "${CUSTOM_TABLE}"`)
     await PEInstance.pool.raw(`DROP TABLE "${CHAT_MSG_TABLE}"`)
+    await PEInstance.pool.raw(`DROP TABLE "${DOCUMENT_TABLE}"`)
 
     try {
       await PEInstance.closeConnection();
