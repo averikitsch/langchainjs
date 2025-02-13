@@ -155,7 +155,7 @@ describe("VectorStore creation", () => {
   })
 })
 
-describe("VectorStore addDocuments method", () => {
+describe("VectorStore methods", () => {
 
   let PEInstance: PostgresEngine;
   let vectorStoreInstance: PostgresVectorStore;
@@ -174,14 +174,36 @@ describe("VectorStore addDocuments method", () => {
     vectorStoreInstance = await PostgresVectorStore.create(PEInstance, embeddingService, CUSTOM_TABLE, pvectorArgs)
   });
 
-  test("should return the same length of results as the added documents {3}", async () => {
+  test("addVectors: should throw an error if vectors length is different from documents length", async () => {
+    let _texts = [docs[0].pageContent, docs[1].pageContent];
+    const vectors = await embeddingService.embedDocuments(_texts);
+
+    async function addVectorsFn() {
+      await vectorStoreInstance.addVectors(vectors, docs);
+    }
+
+    expect(addVectorsFn).rejects.toThrow("The number of vectors must match the number of documents provided.");
+  });
+
+  test("addVectors: should throw an error if ids length is different from documents length", async () => {
+    const vectors = await embeddingService.embedDocuments(texts);
+    const ids = [uuidv4(), uuidv4()];
+
+    async function addVectorsFn() {
+      await vectorStoreInstance.addVectors(vectors, docs, {ids});
+    }
+
+    expect(addVectorsFn).rejects.toThrow("The number of ids must match the number of documents provided.");
+  })
+
+  test("addDocuments: should return the same length of results as the added documents {3}", async () => {
     const ids = Array.from(texts).map(() => uuidv4());
     await vectorStoreInstance.addDocuments(docs, { ids });
     const { rows } = await PEInstance.pool.raw(`SELECT * FROM "${CUSTOM_TABLE}"`);
     expect(rows).toHaveLength(3);
   })
 
-  test("should return the same length of results as the added documents {3}, without passing ids", async () => {
+  test("addDocuments: should return the same length of results as the added documents {3}, without passing ids", async () => {
     await vectorStoreInstance.addDocuments(docs);
     const { rows } = await PEInstance.pool.raw(`SELECT * FROM "${CUSTOM_TABLE}"`);
     expect(rows).toHaveLength(3);

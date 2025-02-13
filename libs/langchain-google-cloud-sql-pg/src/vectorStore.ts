@@ -184,7 +184,13 @@ class PostgresVectorStore extends VectorStore {
     let ids: string[] = [];
     let metadatas: Record<string, any>[] = []
 
-    if (options && options.ids && options.ids.length === documents.length) {
+    if (vectors.length !== documents.length) {
+      throw new Error("The number of vectors must match the number of documents provided.");
+    } else if (options && options.ids && options.ids.length !== documents.length ) {
+      throw new Error("The number of ids must match the number of documents provided.");
+    }
+
+    if (options && options.ids) {
       ids = options.ids;
     } else {
       documents.forEach(document => {
@@ -200,48 +206,46 @@ class PostgresVectorStore extends VectorStore {
       metadatas.push(document.metadata)
     });
 
-    if (documents.length === vectors.length) {
-      const tuples = customZip(ids, documents, vectors, metadatas);
-  
-      // Insert embeddings
-      for (const [id, document, embedding, metadata] of tuples) {
-        const metadataColNames = this.metadataColumns.length > 0 ? `"${this.metadataColumns.join("\",\"")}"` : "";
-  
-        let stmt = `INSERT INTO "${this.schemaName}"."${this.tableName}"("${this.idColumn}", "${this.contentColumn}", "${this.embeddingColumn}", ${metadataColNames}`
-        let values: { [key: string]: any } = {
-          id: id,
-          content: document.pageContent,
-          embedding: `[${embedding.toString()}]`
-        }
-        let valuesStmt = " VALUES (:id, :content, :embedding";
-  
-        // Add metadata
-        let extra = metadata;
-        for (const metadataColumn of this.metadataColumns) {
-          if (metadata.hasOwnProperty(metadataColumn)) {
-            valuesStmt += `, :${metadataColumn}`;
-            values[metadataColumn] = metadata[metadataColumn]
-            delete extra[metadataColumn]
-          } else {
-            valuesStmt += " ,null"
-          }
-        }
-  
-        // Add JSON column and/or close statement
-        stmt += this.metadataJsonColumn ? `, ${this.metadataJsonColumn})` : ")";
-        if (this.metadataJsonColumn) {
-          valuesStmt += ", :extra)";
-          Object.assign(values, { "extra": JSON.stringify(extra) })
-        } else {
-          valuesStmt += ")"
-        }
-  
-        const query = stmt + valuesStmt;
-        await this.engine.pool.raw(query, values)
+    const tuples = customZip(ids, documents, vectors, metadatas);
+
+    // Insert embeddings
+    for (const [id, document, embedding, metadata] of tuples) {
+      const metadataColNames = this.metadataColumns.length > 0 ? `"${this.metadataColumns.join("\",\"")}"` : "";
+
+      let stmt = `INSERT INTO "${this.schemaName}"."${this.tableName}"("${this.idColumn}", "${this.contentColumn}", "${this.embeddingColumn}", ${metadataColNames}`
+      let values: { [key: string]: any } = {
+        id: id,
+        content: document.pageContent,
+        embedding: `[${embedding.toString()}]`
       }
-  
-      return options?.ids;
+      let valuesStmt = " VALUES (:id, :content, :embedding";
+
+      // Add metadata
+      let extra = metadata;
+      for (const metadataColumn of this.metadataColumns) {
+        if (metadata.hasOwnProperty(metadataColumn)) {
+          valuesStmt += `, :${metadataColumn}`;
+          values[metadataColumn] = metadata[metadataColumn]
+          delete extra[metadataColumn]
+        } else {
+          valuesStmt += " ,null"
+        }
+      }
+
+      // Add JSON column and/or close statement
+      stmt += this.metadataJsonColumn ? `, ${this.metadataJsonColumn})` : ")";
+      if (this.metadataJsonColumn) {
+        valuesStmt += ", :extra)";
+        Object.assign(values, { "extra": JSON.stringify(extra) })
+      } else {
+        valuesStmt += ")"
+      }
+
+      const query = stmt + valuesStmt;
+      await this.engine.pool.raw(query, values)
     }
+
+    return options?.ids;
   }
 
   _vectorstoreType(): string {
