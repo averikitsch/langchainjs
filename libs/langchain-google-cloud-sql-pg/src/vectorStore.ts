@@ -186,11 +186,13 @@ class PostgresVectorStore extends VectorStore {
 
     if (vectors.length !== documents.length) {
       throw new Error("The number of vectors must match the number of documents provided.");
-    } else if (options && options.ids && options.ids.length !== documents.length ) {
+    }
+    
+    if (options && options.ids && options.ids.length !== documents.length ) {
       throw new Error("The number of ids must match the number of documents provided.");
     }
 
-    if (options && options.ids) {
+    if (options?.ids) {
       ids = options.ids;
     } else {
       documents.forEach(document => {
