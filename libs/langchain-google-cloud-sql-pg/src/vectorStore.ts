@@ -1,8 +1,10 @@
 import { Embeddings, EmbeddingsInterface } from "@langchain/core/embeddings";
-import PostgresEngine from "./engine.js";
-import { DEFAULT_DISTANCE_STRATEGY, DistanceStrategy, QueryOptions } from "./indexes.js";
 import { VectorStore } from "@langchain/core/vectorstores";
-import { DocumentInterface } from "@langchain/core/documents";
+import { DocumentInterface, Document } from "@langchain/core/documents";
+import { v4 as uuidv4 } from "uuid";
+import { DEFAULT_DISTANCE_STRATEGY, DistanceStrategy, QueryOptions } from "./indexes.js";
+import PostgresEngine from "./engine.js";
+import { customZip } from "./utils/utils.js";
 
 type Metadata = Record<string, unknown>;
 
@@ -16,9 +18,9 @@ export interface PostgresVectorStoreArgs {
   k?: Number,
   fetchK?: Number,
   lambdaMult?: Number,
-  ignoreMetadataColumns?: Array<string>, //optional
-  metadataJsonColumn?: string, // optional
-  indexQueryOptions?: QueryOptions // optional
+  ignoreMetadataColumns?: Array<string>,
+  metadataJsonColumn?: string,
+  indexQueryOptions?: QueryOptions
 }
 
 class PostgresVectorStore extends VectorStore {
@@ -46,7 +48,7 @@ class PostgresVectorStore extends VectorStore {
    * @param embeddings - Instance of `EmbeddingsInterface` used to embed queries.
    * @param dbConfig - Configuration settings for the database or storage system.
    */
-   constructor(embeddings: EmbeddingsInterface, dbConfig: Record<string, any>) {
+  constructor(embeddings: EmbeddingsInterface, dbConfig: Record<string, any>) {
     super(embeddings, dbConfig);
     this.embeddings = embeddings;
     this.engine = dbConfig.engine;
@@ -104,50 +106,50 @@ class PostgresVectorStore extends VectorStore {
     }: PostgresVectorStoreArgs
   ): Promise<PostgresVectorStore> {
 
-    if(metadataColumns !== undefined && ignoreMetadataColumns !== undefined) {
+    if (metadataColumns !== undefined && ignoreMetadataColumns !== undefined) {
       throw "Can not use both metadata_columns and ignore_metadata_columns.";
     }
 
-    const {rows} = await engine.pool.raw(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${tableName}' AND table_schema = '${schemaName}'`);
-    let columns: {[key: string]: any} = {};
+    const { rows } = await engine.pool.raw(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${tableName}' AND table_schema = '${schemaName}'`);
+    let columns: { [key: string]: any } = {};
 
     for (const index in rows) {
       const row = rows[index];
       columns[row["column_name"]] = row["data_type"]
     }
 
-    if(!columns.hasOwnProperty(idColumn)){
+    if (!columns.hasOwnProperty(idColumn)) {
       throw `Id column: ${idColumn}, does not exist.`;
     }
 
-    if(!columns.hasOwnProperty(contentColumn)){
+    if (!columns.hasOwnProperty(contentColumn)) {
       throw `Content column: ${contentColumn}, does not exist.`;
     }
 
     const contentType = columns[contentColumn];
 
-    if(contentType !== "text" && !contentType.includes("char")) {
+    if (contentType !== "text" && !contentType.includes("char")) {
       throw `Content column: ${contentColumn}, is type: ${contentType}. It must be a type of character string.`
     }
 
-    if(!columns.hasOwnProperty(embeddingColumn)) {
+    if (!columns.hasOwnProperty(embeddingColumn)) {
       throw `Embedding column: ${embeddingColumn}, does not exist.`
     }
-        
-    if(columns[embeddingColumn] !== "USER-DEFINED") {
+
+    if (columns[embeddingColumn] !== "USER-DEFINED") {
       throw `Embedding column: ${embeddingColumn} is not of type Vector.`
     }
 
     metadataJsonColumn = columns.hasOwnProperty(metadataJsonColumn) ? metadataJsonColumn : "";
 
     for (const column of metadataColumns) {
-      if(!columns.hasOwnProperty(column)) {
+      if (!columns.hasOwnProperty(column)) {
         throw `Metadata column: ${column}, does not exist.`
       }
     }
 
     const allColumns = columns;
-    if(ignoreMetadataColumns !== undefined && ignoreMetadataColumns.length > 0) {
+    if (ignoreMetadataColumns !== undefined && ignoreMetadataColumns.length > 0) {
       for (const column of ignoreMetadataColumns) {
         delete allColumns[column];
       }
@@ -156,7 +158,7 @@ class PostgresVectorStore extends VectorStore {
       delete allColumns[contentColumn];
       delete allColumns[embeddingColumn];
       metadataColumns = Object.keys(allColumns);
-    } 
+    }
     return new PostgresVectorStore(
       embeddings,
       {
@@ -178,15 +180,102 @@ class PostgresVectorStore extends VectorStore {
     )
   }
 
+  async addVectors(vectors: number[][], documents: Document[], options?: { ids?: string[] }): Promise<string[] | void> {
+    let ids: string[] = [];
+    let metadatas: Record<string, any>[] = []
+
+    if (vectors.length !== documents.length) {
+      throw new Error("The number of vectors must match the number of documents provided.");
+    }
+    
+    if (options && options.ids && options.ids.length !== documents.length ) {
+      throw new Error("The number of ids must match the number of documents provided.");
+    }
+
+    if (options?.ids) {
+      ids = options.ids;
+    } else {
+      documents.forEach(document => {
+        if(document.id !== undefined) {
+          ids.push(document.id);
+        } else {
+          ids.push(uuidv4());
+        }
+      });
+    }
+
+    documents.forEach(document => {
+      metadatas.push(document.metadata)
+    });
+
+    const tuples = customZip(ids, documents, vectors, metadatas);
+
+    // Insert embeddings
+    for (const [id, document, embedding, metadata] of tuples) {
+      const metadataColNames = this.metadataColumns.length > 0 ? `"${this.metadataColumns.join("\",\"")}"` : "";
+
+      let stmt = `INSERT INTO "${this.schemaName}"."${this.tableName}"("${this.idColumn}", "${this.contentColumn}", "${this.embeddingColumn}", ${metadataColNames}`
+      let values: { [key: string]: any } = {
+        id: id,
+        content: document.pageContent,
+        embedding: `[${embedding.toString()}]`
+      }
+      let valuesStmt = " VALUES (:id, :content, :embedding";
+
+      // Add metadata
+      let extra = metadata;
+      for (const metadataColumn of this.metadataColumns) {
+        if (metadata.hasOwnProperty(metadataColumn)) {
+          valuesStmt += `, :${metadataColumn}`;
+          values[metadataColumn] = metadata[metadataColumn]
+          delete extra[metadataColumn]
+        } else {
+          valuesStmt += " ,null"
+        }
+      }
+
+      // Add JSON column and/or close statement
+      stmt += this.metadataJsonColumn ? `, ${this.metadataJsonColumn})` : ")";
+      if (this.metadataJsonColumn) {
+        valuesStmt += ", :extra)";
+        Object.assign(values, { "extra": JSON.stringify(extra) })
+      } else {
+        valuesStmt += ")"
+      }
+
+      const query = stmt + valuesStmt;
+      await this.engine.pool.raw(query, values)
+    }
+
+    return options?.ids;
+  }
+
   _vectorstoreType(): string {
     return "cloudsqlpostgresql"
   }
-  addVectors(vectors: number[][], documents: DocumentInterface[], options?: { [x: string]: any; }): Promise<string[] | void> {
-    throw new Error("Method not implemented.");
+
+  /**
+   * Adds documents to the vector store, embedding them first through the
+   * `embeddings` instance.
+   *
+   * @param documents - Array of documents to embed and add.
+   * @param options - Optional configuration for embedding and storing documents.
+   * @returns A promise resolving to an array of document IDs or void, based on implementation.
+   * @abstract
+   */
+  async addDocuments(documents: Document[], options?: { ids?: string[] }): Promise<string[] | void> {
+    let texts = [];
+
+    for (const doc of documents) {
+      texts.push(doc.pageContent)
+    }
+
+    const embeddings = await this.embeddings.embedDocuments(texts);
+    const results = await this.addVectors(embeddings, documents, options);
+
+    return results;
   }
-  addDocuments(documents: DocumentInterface[], options?: { [x: string]: any; }): Promise<string[] | void> {
-    throw new Error("Method not implemented.");
-  }
+
   similaritySearchVectorWithScore(query: number[], k: number, filter?: this["FilterType"] | undefined): Promise<[DocumentInterface, number][]> {
     throw new Error("Method not implemented.");
   }
@@ -198,8 +287,8 @@ class PostgresVectorStore extends VectorStore {
    * @param ids -  Optional: Property of {params} that contains the array of ids to be deleted
    * @returns A promise that resolves once the deletion is complete.
    */
-  async delete(params: {ids?: string[]}): Promise<void> { // TODO: test this method
-    if(params.ids === undefined) return;
+  async delete(params: { ids?: string[] }): Promise<void> { // TODO: test this method
+    if (params.ids === undefined) return;
     const idList = params.ids.map((id: any) => `'${id}'`).join(", ");
     const query = `DELETE FROM "${this.schemaName}"."${this.tableName}" WHERE ${this.idColumn} in (${idList})`;
     await this.engine.pool.raw(query);
