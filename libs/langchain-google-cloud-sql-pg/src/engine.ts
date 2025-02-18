@@ -46,7 +46,7 @@ export class Column {
   }
 }
 
-export default class PostgresEngine {
+class PostgresEngine {
 
   private static _createKey = Symbol();
   pool: knex.Knex<any, any[]>;
@@ -262,3 +262,4 @@ export default class PostgresEngine {
   }
 }
 
+export default PostgresEngine;
