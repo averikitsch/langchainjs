@@ -46,7 +46,7 @@ export class Column {
   }
 }
 
-class PostgresEngine {
+export default class PostgresEngine {
 
   private static _createKey = Symbol();
   pool: knex.Knex<any, any[]>;
@@ -245,14 +245,6 @@ class PostgresEngine {
     )
   }
 
-  async init_document_table(tableName: string, schemaName: string = "public"): Promise<void> {  
-    await this.pool.raw(
-      `CREATE TABLE IF NOT EXISTS ${schemaName}.${tableName}(
-      id SERIAL PRIMARY KEY,
-      content TEXT NOT NULL,
-      metadata JSONB NOT NULL);`
-    )}
-
   /**
    *  Dispose of connection pool
    */
@@ -270,4 +262,3 @@ class PostgresEngine {
   }
 }
 
-export default PostgresEngine;
