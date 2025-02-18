@@ -335,7 +335,7 @@ class PostgresVectorStore extends VectorStore {
     return documentsWithScores;
   }
 
-  async queryCollection(embedding: number[], k?: Number | undefined, filter?: this["FilterType"] | undefined) {
+  private async queryCollection(embedding: number[], k?: Number | undefined, filter?: this["FilterType"] | undefined) {
     k = k ?? this.k;
     const operator = this.distanceStrategy.operator;
     const searchFunction = this.distanceStrategy.searchFunction;
