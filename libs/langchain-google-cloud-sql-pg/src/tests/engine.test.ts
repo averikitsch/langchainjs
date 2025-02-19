@@ -7,6 +7,7 @@ import * as dotenv from "dotenv";
 
 dotenv.config()
 
+const USER_AGENT = "langchain-google-cloud-sql-pg-js";
 const CUSTOM_TABLE = "test_table_custom";
 const CHAT_MSG_TABLE = "test_message_table";
 const VECTOR_SIZE = 768;
@@ -97,7 +98,7 @@ describe("PostgresEngine Instance creation", () => {
   }); 
 
   test('should create a PostgresEngine Instance through from_engine method', async () => {
-    PostgresEngine.connector = new Connector();
+    PostgresEngine.connector = new Connector({userAgent: USER_AGENT});
     const clientOpts = await PostgresEngine.connector.getOptions({
       instanceConnectionName: `${process.env.PROJECT_ID}:${process.env.REGION}:${process.env.INSTANCE_NAME}`,
       ipType: IpAddressTypes.PUBLIC,
