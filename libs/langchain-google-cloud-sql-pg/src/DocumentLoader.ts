@@ -12,14 +12,6 @@ export interface PostgresLoaderOptions {
   format?: "text" | "json" | "yaml" | "csv";
   formatter?: (row: { [key: string]: any }, contentColumns: string[]) => string;
   query?: string;
-}
-
-// Options for PostgresDocumentSaver
-export interface PostgresDocumentSaverOptions {
-  tableName?: string;
-  schemaName?: string;
-  contentColumn?: string;
-  metadataColumns?: string[];
   metadataJsonColumn?: string;
 }
 
@@ -36,7 +28,7 @@ export class PostgresLoader extends BaseDocumentLoader {
 
     static async create(engine: PostgresEngine, options: PostgresLoaderOptions): Promise<PostgresLoader> {
 
-      let { schemaName, tableName, contentColumns, metadataColumns, format, query, formatter } = options;
+      let { schemaName, tableName, contentColumns, metadataColumns, format, query, formatter, metadataJsonColumn } = options;
 
       if (tableName && query) {
         throw new Error("Only one of 'table_name' or 'query' should be specified.");
