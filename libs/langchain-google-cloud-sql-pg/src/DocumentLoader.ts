@@ -1,7 +1,7 @@
 import PostgresEngine from './engine.js'; 
 import { Document } from "@langchain/core/documents"; 
 import { BaseDocumentLoader } from '@langchain/core/document_loaders/base';
-import { text_formatter, csv_formatter, yaml_formatter, json_formatter } from './utils/utils.js';
+import { textFormatter, csvFormatter, yamlFormatter, jsonFormatter } from './utils/utils.js';
 
 // Options for PostgresLoader
 export interface PostgresLoaderOptions {
@@ -47,13 +47,13 @@ export class PostgresLoader extends BaseDocumentLoader {
       if (options.formatter !== undefined) {
         // use provided formatter
       } else if (format === "csv") {
-        formatter = csv_formatter;
+        formatter = csvFormatter;
       } else if (format === "yaml") {
-        formatter = yaml_formatter;
+        formatter = yamlFormatter;
       } else if (format === "json") {
-        formatter = json_formatter;
+        formatter = jsonFormatter;
       } else {
-        formatter = text_formatter;
+        formatter = textFormatter;
       }
 
       if (!query) {

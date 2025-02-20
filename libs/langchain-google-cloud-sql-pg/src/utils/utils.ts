@@ -44,7 +44,7 @@ export const customZip = (...arrays: any[]) => {
 */
 
 // txt document formatter.
-export function text_formatter(row: { [key: string]: any }, content_columns: string[]): string {
+export function textFormatter(row: { [key: string]: any }, content_columns: string[]): string {
   return content_columns
     .filter((column) => column in row)
     .map((column) => String(row[column]))
@@ -52,7 +52,7 @@ export function text_formatter(row: { [key: string]: any }, content_columns: str
 }
 
 // CSV document formatter.
-export function csv_formatter(row: { [key: string]: any }, content_columns: string[]): string {
+export function csvFormatter(row: { [key: string]: any }, content_columns: string[]): string {
   return content_columns
     .filter((column) => column in row)
     .map((column) => String(row[column]))
@@ -60,7 +60,7 @@ export function csv_formatter(row: { [key: string]: any }, content_columns: stri
 }
 
 // YAML document formatter 
-export function yaml_formatter(row: { [key: string]: any }, content_columns: string[]): string {
+export function yamlFormatter(row: { [key: string]: any }, content_columns: string[]): string {
   return content_columns
     .filter((column) => column in row)
     .map((column) => `${column}: ${String(row[column])}`)
@@ -68,7 +68,7 @@ export function yaml_formatter(row: { [key: string]: any }, content_columns: str
 }
 
 // JSON document formatter
-export function json_formatter(row: { [key: string]: any }, content_columns: string[]): string {
+export function jsonFormatter(row: { [key: string]: any }, content_columns: string[]): string {
   const dictionary: { [key: string]: any } = {};
   for (const column of content_columns) {
     if (column in row) {
