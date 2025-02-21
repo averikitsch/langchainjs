@@ -1,10 +1,12 @@
 import { Embeddings, EmbeddingsInterface } from "@langchain/core/embeddings";
-import { VectorStore } from "@langchain/core/vectorstores";
+import { MaxMarginalRelevanceSearchOptions, VectorStore } from "@langchain/core/vectorstores";
 import { Document } from "@langchain/core/documents";
 import { v4 as uuidv4 } from "uuid";
 import { DEFAULT_DISTANCE_STRATEGY, DistanceStrategy, QueryOptions } from "./indexes.js";
 import PostgresEngine from "./engine.js";
 import { customZip } from "./utils/utils.js";
+import { Callbacks } from "@langchain/core/callbacks/manager";
+import { maximalMarginalRelevance } from "@langchain/core/utils/math";
 
 export interface PostgresVectorStoreArgs {
   schemaName?: string,
@@ -13,9 +15,9 @@ export interface PostgresVectorStoreArgs {
   metadataColumns?: Array<string>,
   idColumn?: string,
   distanceStrategy?: DistanceStrategy,
-  k?: Number,
-  fetchK?: Number,
-  lambdaMult?: Number,
+  k?: number,
+  fetchK?: number,
+  lambdaMult?: number,
   ignoreMetadataColumns?: Array<string>,
   metadataJsonColumn?: string,
   indexQueryOptions?: QueryOptions
@@ -35,9 +37,9 @@ class PostgresVectorStore extends VectorStore {
   idColumn: string;
   metadataJsonColumn: string;
   distanceStrategy: DistanceStrategy;
-  k: Number;
-  fetchK: Number;
-  lambdaMult: Number;
+  k: number;
+  fetchK: number;
+  lambdaMult: number;
   indexQueryOptions: QueryOptions;
 
   /**
@@ -78,9 +80,9 @@ class PostgresVectorStore extends VectorStore {
    * @param {string} idColumn Column that represents the Document's id. Defaults to "langchain_id".
    * @param {string} metadataJsonColumn Optional - Column to store metadata as JSON. Defaults to "langchain_metadata".
    * @param {DistanceStrategy} distanceStrategy Distance strategy to use for vector similarity search. Defaults to COSINE_DISTANCE.
-   * @param {Number} k Number of Documents to return from search. Defaults to 4.
-   * @param {Number} fetchK Number of Documents to fetch to pass to MMR algorithm.
-   * @param {Number} lambdaMult Number between 0 and 1 that determines the degree of diversity among the results with 0 corresponding to maximum diversity and 1 to minimum diversity. Defaults to 0.5.
+   * @param {number} k Number of Documents to return from search. Defaults to 4.
+   * @param {number} fetchK Number of Documents to fetch to pass to MMR algorithm.
+   * @param {number} lambdaMult Number between 0 and 1 that determines the degree of diversity among the results with 0 corresponding to maximum diversity and 1 to minimum diversity. Defaults to 0.5.
    * @param {QueryOptions} indexQueryOptions Optional - Index query option.
    * @returns PostgresVectorStore instance.
    */
@@ -308,7 +310,7 @@ class PostgresVectorStore extends VectorStore {
     return documentsWithScores;
   }
 
-  private async queryCollection(embedding: number[], k?: Number | undefined, filter?: this["FilterType"] | undefined) {
+  private async queryCollection(embedding: number[], k?: number | undefined, filter?: this["FilterType"] | undefined) {
     k = k ?? this.k;
     const operator = this.distanceStrategy.operator;
     const searchFunction = this.distanceStrategy.searchFunction;
@@ -317,7 +319,7 @@ class PostgresVectorStore extends VectorStore {
     const metadataJsonColName = this.metadataJsonColumn ? `, "${this.metadataJsonColumn}"` : "";
     let results;
 
-    const query = `SELECT "${this.idColumn}", "${this.contentColumn}", ${metadataColNames} ${metadataJsonColName}, ${searchFunction}("${this.embeddingColumn}", '[${embedding}]') as distance FROM "${this.schemaName}"."${this.tableName}" ${_filter} ORDER BY "${this.embeddingColumn}" ${operator} '[${embedding}]' LIMIT ${k};` 
+    const query = `SELECT "${this.idColumn}", "${this.contentColumn}", "${this.embeddingColumn}", ${metadataColNames} ${metadataJsonColName}, ${searchFunction}("${this.embeddingColumn}", '[${embedding}]') as distance FROM "${this.schemaName}"."${this.tableName}" ${_filter} ORDER BY "${this.embeddingColumn}" ${operator} '[${embedding}]' LIMIT ${k};` 
 
     if (this.indexQueryOptions) {
       results = await this.engine.pool.raw(`SET LOCAL ${this.indexQueryOptions.to_string()}`)
@@ -326,6 +328,83 @@ class PostgresVectorStore extends VectorStore {
     const {rows} = await this.engine.pool.raw(query);
 
     return rows;
+  }
+
+  async maxMarginalRelevanceSearch(
+    query: string,
+    options?: MaxMarginalRelevanceSearchOptions<this["FilterType"]>,
+    _callbacks?: Callbacks | undefined
+  ): Promise<Document[]> {
+    const vector = await this.embeddings.embedQuery(query);
+    return await this.maxMarginalRelevantSearchByVector(
+      vector,
+      options?.k,
+      options?.fetchK,
+      options?.lambda,
+      options?.filter
+    );
+  }
+
+  async maxMarginalRelevantSearchByVector(
+    vector: number[],
+    k?: number,
+    fetchK?: number,
+    lambdaMult?: number,
+    filter?: this["FilterType"]
+  ): Promise<Document[]> {
+    const docsAndScores =
+      await this.maxMarginalRelevanceSearchWithScoreByVector(
+        vector,
+        k,
+        fetchK,
+        lambdaMult,
+        filter
+      );
+    const docsList: Document[] = [];
+
+    for (const docScore in docsAndScores) {
+      docsList.push(docsAndScores[docScore]);
+    }
+
+    return docsList;
+  }
+
+  async maxMarginalRelevanceSearchWithScoreByVector(vector: number[], k?: number, fetchK?: number, lambdaMult?: number, filter?: this["FilterType"]): Promise<Document[]> {
+    const results = await this.queryCollection(vector, k, filter);
+    k = k ? k : this.k;
+    fetchK = fetchK ? fetchK : this.fetchK;
+    const embeddingList = results.map((row: { [x: string]: string }) =>
+      JSON.parse(row[this.embeddingColumn])
+    );
+    const mmrSelected = maximalMarginalRelevance(
+      vector,
+      embeddingList,
+      lambdaMult,
+      k
+    );
+
+    let documentsWithScores: [Document, number][] = [];
+
+    for (const row of results) {
+      const metadata =
+        this.metadataJsonColumn && row[this.metadataJsonColumn]
+          ? row[this.metadataJsonColumn]
+          : {};
+      for (const col of this.metadataColumns) {
+        metadata[col] = row[col];
+      }
+      documentsWithScores.push([
+        new Document({
+          pageContent: row[this.contentColumn],
+          metadata: metadata,
+        }),
+        row["distance"],
+      ]);
+    }
+
+    const enumeratedList = documentsWithScores.filter((_, i) => mmrSelected.includes(i)).map(([doc, _]) => doc);
+    
+    return enumeratedList;
   }
 }
 
