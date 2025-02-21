@@ -214,7 +214,7 @@ describe("VectorStore methods", () => {
     const results = await vectorStoreInstance.similaritySearch("foo", 1);
     expect(results.length).toBe(1)
 
-    const results_2 = await vectorStoreInstance.similaritySearch("foo", 1,  `"my_content" = 'bar'`)
+    const results_2 = await vectorStoreInstance.similaritySearch("foo", 1,  `"page" = '2'`)
     const expected = [
       new Document({ pageContent: "bar" })
     ];
