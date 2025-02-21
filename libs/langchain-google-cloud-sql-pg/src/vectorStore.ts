@@ -5,9 +5,6 @@ import { v4 as uuidv4 } from "uuid";
 import { DEFAULT_DISTANCE_STRATEGY, DistanceStrategy, QueryOptions } from "./indexes.js";
 import PostgresEngine from "./engine.js";
 import { customZip } from "./utils/utils.js";
-import { Callbacks } from "@langchain/core/callbacks/manager";
-
-type Metadata = Record<string, unknown>;
 
 export interface PostgresVectorStoreArgs {
   schemaName?: string,
@@ -25,7 +22,7 @@ export interface PostgresVectorStoreArgs {
 }
 
 class PostgresVectorStore extends VectorStore {
-  declare FilterType: Metadata;
+  declare FilterType: string;
 
   engine: PostgresEngine;
   embeddings: EmbeddingsInterface;
@@ -291,31 +288,7 @@ class PostgresVectorStore extends VectorStore {
     await this.engine.pool.raw(query);
   }
 
-  /**
-   * Searches for documents similar to a text query by embedding the query and
-   * performing a similarity search on the resulting vector.
-   *
-   * @param query - Text query for finding similar documents.
-   * @param k - Number of similar results to return. Defaults to 4.
-   * @param filter - Optional filter based on `FilterType`.
-   * @param _callbacks - Optional callbacks for monitoring search progress
-   * @returns A promise resolving to an array of `DocumentInterface` instances representing similar documents.
-   */
-  async similaritySearch(query: string, k: number = 4, filter?: this["FilterType"] | undefined, _callbacks?: Callbacks | undefined): Promise<Document[]> {
-    const embedding = await this.embeddings.embedQuery(query);
-    return await this.similaritySearchByVector(embedding, k, filter)
-  }
-
-  async similaritySearchByVector(embedding: number[], k?: number, filter?: this["FilterType"]): Promise<Document[]> {
-    const documents: Document[] = [];
-    const docsAndScores = await this.similaritySearchVectorWithScore(embedding, k, filter);
-    for (const [doc, _] of docsAndScores) {
-      documents.push(doc)
-    }
-    return documents;
-  }
-
-  async similaritySearchVectorWithScore(embedding: number[], k?: number, filter?: this["FilterType"]): Promise<[Document, number][]> {
+  async similaritySearchVectorWithScore(embedding: number[], k: number, filter?: this["FilterType"]): Promise<[Document, number][]> {
     const results = await this.queryCollection(embedding, k, filter)
     let documentsWithScores:[Document, number][] = [];
 
@@ -339,18 +312,20 @@ class PostgresVectorStore extends VectorStore {
     k = k ?? this.k;
     const operator = this.distanceStrategy.operator;
     const searchFunction = this.distanceStrategy.searchFunction;
-    const _filter = filter !== undefined ? `WHERE "${Object.entries(filter)[0][0]}" = '${Object.entries(filter)[0][1]}'` : "";
+    const _filter = filter !== undefined ? `WHERE ${filter}` : "";
+    const metadataColNames = this.metadataColumns.length > 0 ? `"${this.metadataColumns.join("\",\"")}"` : "";
+    const metadataJsonColName = this.metadataJsonColumn ? `, "${this.metadataJsonColumn}"` : "";
     let results;
 
-    const query = `SELECT *, ${searchFunction}("${this.embeddingColumn}", '[${embedding}]') as distance FROM "${this.schemaName}"."${this.tableName}" ${_filter} ORDER BY "${this.embeddingColumn}" ${operator} '[${embedding}]' LIMIT ${k};` 
+    const query = `SELECT "${this.idColumn}", "${this.contentColumn}", ${metadataColNames} ${metadataJsonColName}, ${searchFunction}("${this.embeddingColumn}", '[${embedding}]') as distance FROM "${this.schemaName}"."${this.tableName}" ${_filter} ORDER BY "${this.embeddingColumn}" ${operator} '[${embedding}]' LIMIT ${k};` 
 
     if (this.indexQueryOptions) {
-      results = await this.engine.pool.raw(`SET LOCAL ${this.indexQueryOptions.to_string()}`) // Add the toString method to QueryOptions
-    } else {
-      results = await this.engine.pool.raw(query);
+      results = await this.engine.pool.raw(`SET LOCAL ${this.indexQueryOptions.to_string()}`)
     }
 
-    return results.rows;
+    const {rows} = await this.engine.pool.raw(query);
+
+    return rows;
   }
 }
 

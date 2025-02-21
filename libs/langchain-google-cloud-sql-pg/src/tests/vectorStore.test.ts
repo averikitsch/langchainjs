@@ -214,22 +214,13 @@ describe("VectorStore methods", () => {
     const results = await vectorStoreInstance.similaritySearch("foo", 1);
     expect(results.length).toBe(1)
 
-    const results_2 = await vectorStoreInstance.similaritySearch("foo", 1,  {"my_content": 'bar'})
+    const results_2 = await vectorStoreInstance.similaritySearch("foo", 1,  `"my_content" = 'bar'`)
     const expected = [
       new Document({ pageContent: "bar" })
     ];
     results_2.forEach((row: any, index: number) => {
       expect(row).toMatchObject(expected[index])
     });
-  })
-
-  test("similaritySearchByVector", async () => {
-    const embedding = await embeddingService.embedQuery("foo")
-    const results = await vectorStoreInstance.similaritySearchByVector(embedding);
-    const expected = new Document({ pageContent: "foo" })
-
-    expect(results.length).toBe(3)
-    expect(results[0]).toMatchObject(expected)
   })
 
   test("similaritySearchWithScore", async () => {
@@ -242,7 +233,7 @@ describe("VectorStore methods", () => {
 
   test("similaritySearchVectorWithScore", async () => {
     const embedding = await embeddingService.embedQuery("foo")
-    const results = await vectorStoreInstance.similaritySearchVectorWithScore(embedding);
+    const results = await vectorStoreInstance.similaritySearchVectorWithScore(embedding, 1);
     const expected = new Document({ pageContent: "foo" })
     
     expect(results[0][0]).toMatchObject(expected)
