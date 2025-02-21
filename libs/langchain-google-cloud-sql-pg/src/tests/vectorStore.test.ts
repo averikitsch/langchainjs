@@ -240,6 +240,49 @@ describe("VectorStore methods", () => {
     expect(results[0][1]).toBe(0)
   })
 
+  test("maxMarginalRelevanceSearch", async () => {
+    const results = await vectorStoreInstance.maxMarginalRelevanceSearch("bar");
+    const expected = new Document({ pageContent: "bar" })
+    
+    expect(results[0]).toMatchObject(expected)    
+  })
+
+  test("maxMarginalRelevanceSearch with filter", async () => {
+    const options = {
+      k: 1,
+      filter: `"my_content" = 'foo'` 
+    }
+    const results = await vectorStoreInstance.maxMarginalRelevanceSearch("foo", options)
+    const expected = new Document({ pageContent: "foo" })
+    
+    expect(results[0]).toMatchObject(expected)
+    
+  })
+
+  test("maxMarginalRelevanceSearchWithScoreByVector", async () => {
+    const vector = await embeddingService.embedQuery("bar")
+    const results = await vectorStoreInstance.maxMarginalRelevanceSearchWithScoreByVector(vector)
+    const expected = new Document({ pageContent: "bar" })
+    
+    expect(results[0]).toMatchObject(expected)
+  })
+
+  test("maxMarginalRelevanceSearchWithScoreByVector with lambda and fetchK", async () => {
+    const vector = await embeddingService.embedQuery("bar")
+    const results = await vectorStoreInstance.maxMarginalRelevanceSearchWithScoreByVector(vector, 4, 10, 0.75)
+    const expected = new Document({ pageContent: "bar" })
+    
+    expect(results[0]).toMatchObject(expected)
+  })
+
+  test("maxMarginalRelevantSearchByVector", async () => {
+    const vector = await embeddingService.embedQuery("bar")
+    const results = await vectorStoreInstance.maxMarginalRelevantSearchByVector(vector)
+    const expected = new Document({ pageContent: "bar" })
+    
+    expect(results[0]).toMatchObject(expected)
+  })
+
   afterAll(async () => {
     try {
       await PEInstance.pool.raw(`TRUNCATE TABLE "${CUSTOM_TABLE}"`);
