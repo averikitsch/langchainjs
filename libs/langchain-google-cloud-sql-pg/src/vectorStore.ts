@@ -1,12 +1,10 @@
 import { Embeddings, EmbeddingsInterface } from "@langchain/core/embeddings";
 import { VectorStore } from "@langchain/core/vectorstores";
-import { DocumentInterface, Document } from "@langchain/core/documents";
+import { Document } from "@langchain/core/documents";
 import { v4 as uuidv4 } from "uuid";
 import { DEFAULT_DISTANCE_STRATEGY, DistanceStrategy, QueryOptions } from "./indexes.js";
 import PostgresEngine from "./engine.js";
 import { customZip } from "./utils/utils.js";
-
-type Metadata = Record<string, unknown>;
 
 export interface PostgresVectorStoreArgs {
   schemaName?: string,
@@ -24,7 +22,7 @@ export interface PostgresVectorStoreArgs {
 }
 
 class PostgresVectorStore extends VectorStore {
-  declare FilterType: Metadata;
+  declare FilterType: string;
 
   engine: PostgresEngine;
   embeddings: EmbeddingsInterface;
@@ -60,7 +58,7 @@ class PostgresVectorStore extends VectorStore {
     this.ignoreMetadataColumns = dbConfig.ignoreMetadataColumns;
     this.idColumn = dbConfig.idColumn;
     this.metadataJsonColumn = dbConfig.metadataJsonColumn;
-    this.distanceStrategy = dbConfig.distance_strategy;
+    this.distanceStrategy = dbConfig.distanceStrategy;
     this.k = dbConfig.k;
     this.fetchK = dbConfig.fetchK;
     this.lambdaMult = dbConfig.lambdaMult;
@@ -276,10 +274,6 @@ class PostgresVectorStore extends VectorStore {
     return results;
   }
 
-  similaritySearchVectorWithScore(query: number[], k: number, filter?: this["FilterType"] | undefined): Promise<[DocumentInterface, number][]> {
-    throw new Error("Method not implemented.");
-  }
-
   /**
    * Deletes documents from the vector store based on the specified ids.
    *
@@ -292,6 +286,46 @@ class PostgresVectorStore extends VectorStore {
     const idList = params.ids.map((id: any) => `'${id}'`).join(", ");
     const query = `DELETE FROM "${this.schemaName}"."${this.tableName}" WHERE ${this.idColumn} in (${idList})`;
     await this.engine.pool.raw(query);
+  }
+
+  async similaritySearchVectorWithScore(embedding: number[], k: number, filter?: this["FilterType"]): Promise<[Document, number][]> {
+    const results = await this.queryCollection(embedding, k, filter)
+    let documentsWithScores:[Document, number][] = [];
+
+    for (const row of results) {
+      const metadata = (this.metadataJsonColumn && row[this.metadataJsonColumn]) ? row[this.metadataJsonColumn] : {};
+
+      for (const col of this.metadataColumns) {
+        metadata[col] = row[col];
+      }
+
+      documentsWithScores.push([
+        new Document({pageContent: row[this.contentColumn], metadata: metadata}),
+        row['distance']
+      ]);
+    }
+
+    return documentsWithScores;
+  }
+
+  private async queryCollection(embedding: number[], k?: Number | undefined, filter?: this["FilterType"] | undefined) {
+    k = k ?? this.k;
+    const operator = this.distanceStrategy.operator;
+    const searchFunction = this.distanceStrategy.searchFunction;
+    const _filter = filter !== undefined ? `WHERE ${filter}` : "";
+    const metadataColNames = this.metadataColumns.length > 0 ? `"${this.metadataColumns.join("\",\"")}"` : "";
+    const metadataJsonColName = this.metadataJsonColumn ? `, "${this.metadataJsonColumn}"` : "";
+    let results;
+
+    const query = `SELECT "${this.idColumn}", "${this.contentColumn}", ${metadataColNames} ${metadataJsonColName}, ${searchFunction}("${this.embeddingColumn}", '[${embedding}]') as distance FROM "${this.schemaName}"."${this.tableName}" ${_filter} ORDER BY "${this.embeddingColumn}" ${operator} '[${embedding}]' LIMIT ${k};` 
+
+    if (this.indexQueryOptions) {
+      results = await this.engine.pool.raw(`SET LOCAL ${this.indexQueryOptions.to_string()}`)
+    }
+
+    const {rows} = await this.engine.pool.raw(query);
+
+    return rows;
   }
 }
 

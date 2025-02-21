@@ -190,7 +190,7 @@ describe("VectorStore methods", () => {
     const ids = [uuidv4(), uuidv4()];
 
     async function addVectorsFn() {
-      await vectorStoreInstance.addVectors(vectors, docs, {ids});
+      await vectorStoreInstance.addVectors(vectors, docs, { ids });
     }
 
     expect(addVectorsFn).rejects.toThrow("The number of ids must match the number of documents provided.");
@@ -201,6 +201,7 @@ describe("VectorStore methods", () => {
     await vectorStoreInstance.addDocuments(docs, { ids });
     const { rows } = await PEInstance.pool.raw(`SELECT * FROM "${CUSTOM_TABLE}"`);
     expect(rows).toHaveLength(3);
+    await PEInstance.pool.raw(`TRUNCATE TABLE "${CUSTOM_TABLE}"`);
   })
 
   test("addDocuments: should return the same length of results as the added documents {3}, without passing ids", async () => {
@@ -209,12 +210,39 @@ describe("VectorStore methods", () => {
     expect(rows).toHaveLength(3);
   })
 
-  afterEach(async () => {
-    await PEInstance.pool.raw(`TRUNCATE TABLE "${CUSTOM_TABLE}"`);
+  test("similaritySearch", async () => {
+    const results = await vectorStoreInstance.similaritySearch("foo", 1);
+    expect(results.length).toBe(1)
+
+    const results_2 = await vectorStoreInstance.similaritySearch("foo", 1,  `"page" = '2'`)
+    const expected = [
+      new Document({ pageContent: "bar" })
+    ];
+    results_2.forEach((row: any, index: number) => {
+      expect(row).toMatchObject(expected[index])
+    });
+  })
+
+  test("similaritySearchWithScore", async () => {
+    const results = await vectorStoreInstance.similaritySearchWithScore("foo");
+    const expected = new Document({ pageContent: "foo" })
+
+    expect(results.length).toBe(3)
+    expect(results[0][0]).toMatchObject(expected)
+  })
+
+  test("similaritySearchVectorWithScore", async () => {
+    const embedding = await embeddingService.embedQuery("foo")
+    const results = await vectorStoreInstance.similaritySearchVectorWithScore(embedding, 1);
+    const expected = new Document({ pageContent: "foo" })
+    
+    expect(results[0][0]).toMatchObject(expected)
+    expect(results[0][1]).toBe(0)
   })
 
   afterAll(async () => {
     try {
+      await PEInstance.pool.raw(`TRUNCATE TABLE "${CUSTOM_TABLE}"`);
       await PEInstance.closeConnection();
     } catch (error) {
       throw new Error(`Error on closing connection: ${error}`);
