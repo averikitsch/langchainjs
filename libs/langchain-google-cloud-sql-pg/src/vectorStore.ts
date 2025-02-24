@@ -331,7 +331,7 @@ class PostgresVectorStore extends VectorStore {
 
   async maxMarginalRelevanceSearch(
     query: string,
-    options?: MaxMarginalRelevanceSearchOptions<this["FilterType"]>
+    options: MaxMarginalRelevanceSearchOptions<this["FilterType"]>
   ): Promise<Document[]> {
     
     const vector = await this.embeddings.embedQuery(query);
