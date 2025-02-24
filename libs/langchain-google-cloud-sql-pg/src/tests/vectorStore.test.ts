@@ -240,6 +240,30 @@ describe("VectorStore methods", () => {
     expect(results[0][1]).toBe(0)
   })
 
+  test("delete method with an ID", async () => {
+    await PEInstance.pool.raw(`TRUNCATE TABLE "${CUSTOM_TABLE}"`);
+    const ids = Array.from(texts).map(() => uuidv4());
+    await vectorStoreInstance.addDocuments(docs, { ids });
+    const { rows } = await PEInstance.pool.raw(`SELECT * FROM "${CUSTOM_TABLE}"`);
+    expect(rows).toHaveLength(3);
+
+    await vectorStoreInstance.delete({ids: [ids[0]]});
+    const results = await PEInstance.pool.raw(`SELECT * FROM "${CUSTOM_TABLE}"`);
+    expect(results.rows).toHaveLength(2);
+  })
+
+  test("delete method with no ids", async () => {
+    await PEInstance.pool.raw(`TRUNCATE TABLE "${CUSTOM_TABLE}"`);
+    const ids = Array.from(texts).map(() => uuidv4());
+    await vectorStoreInstance.addDocuments(docs, { ids });
+    const { rows } = await PEInstance.pool.raw(`SELECT * FROM "${CUSTOM_TABLE}"`);
+    expect(rows).toHaveLength(3);
+
+    await vectorStoreInstance.delete({});
+    const results = await PEInstance.pool.raw(`SELECT * FROM "${CUSTOM_TABLE}"`);
+    expect(results.rows).toHaveLength(3);
+  })
+
   afterAll(async () => {
     try {
       await PEInstance.pool.raw(`TRUNCATE TABLE "${CUSTOM_TABLE}"`);

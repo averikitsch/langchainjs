@@ -281,10 +281,10 @@ class PostgresVectorStore extends VectorStore {
    * @param ids -  Optional: Property of {params} that contains the array of ids to be deleted
    * @returns A promise that resolves once the deletion is complete.
    */
-  async delete(params: { ids?: string[] }): Promise<void> { // TODO: test this method
+  async delete(params: { ids?: string[] }): Promise<void> {
     if (params.ids === undefined) return;
     const idList = params.ids.map((id: any) => `'${id}'`).join(", ");
-    const query = `DELETE FROM "${this.schemaName}"."${this.tableName}" WHERE ${this.idColumn} in (${idList})`;
+    const query = `DELETE FROM "${this.schemaName}"."${this.tableName}" WHERE "${this.idColumn}" in (${idList})`;
     await this.engine.pool.raw(query);
   }
 
