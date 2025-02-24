@@ -5,6 +5,7 @@ import { Document, DocumentInterface } from "@langchain/core/documents";
 import { SyntheticEmbeddings } from "@langchain/core/utils/testing";
 import { v4 as uuidv4 } from "uuid";
 import * as dotenv from "dotenv";
+import { MaxMarginalRelevanceSearchOptions } from "@langchain/core/vectorstores";
 
 dotenv.config()
 
@@ -263,7 +264,7 @@ describe("VectorStore methods", () => {
     const results = await PEInstance.pool.raw(`SELECT * FROM "${CUSTOM_TABLE}"`);
     expect(results.rows).toHaveLength(3);
   })
-  
+
   test("maxMarginalRelevanceSearch", async () => {
     const results = await vectorStoreInstance.maxMarginalRelevanceSearch("bar");
     const expected = new Document({ pageContent: "bar" })
@@ -283,25 +284,14 @@ describe("VectorStore methods", () => {
     
   })
 
-  test("maxMarginalRelevanceSearchWithScoreByVector", async () => {
-    const vector = await embeddingService.embedQuery("bar")
-    const results = await vectorStoreInstance.maxMarginalRelevanceSearchWithScoreByVector(vector)
-    const expected = new Document({ pageContent: "bar" })
-    
-    expect(results[0]).toMatchObject(expected)
-  })
-
   test("maxMarginalRelevanceSearchWithScoreByVector with lambda and fetchK", async () => {
-    const vector = await embeddingService.embedQuery("bar")
-    const results = await vectorStoreInstance.maxMarginalRelevanceSearchWithScoreByVector(vector, 4, 10, 0.75)
-    const expected = new Document({ pageContent: "bar" })
-    
-    expect(results[0]).toMatchObject(expected)
-  })
+    const options: MaxMarginalRelevanceSearchOptions<'PostgresVectorStore["FilterType"]'> = {
+      k: 4,
+      fetchK: 10,
+      lambda: 0.75
+    }
 
-  test("maxMarginalRelevantSearchByVector", async () => {
-    const vector = await embeddingService.embedQuery("bar")
-    const results = await vectorStoreInstance.maxMarginalRelevantSearchByVector(vector)
+    const results = await vectorStoreInstance.maxMarginalRelevanceSearch("bar", options)
     const expected = new Document({ pageContent: "bar" })
     
     expect(results[0]).toMatchObject(expected)

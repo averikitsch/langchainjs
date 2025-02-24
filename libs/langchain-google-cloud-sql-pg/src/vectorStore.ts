@@ -5,7 +5,6 @@ import { v4 as uuidv4 } from "uuid";
 import { DEFAULT_DISTANCE_STRATEGY, DistanceStrategy, QueryOptions } from "./indexes.js";
 import PostgresEngine from "./engine.js";
 import { customZip } from "./utils/utils.js";
-import { Callbacks } from "@langchain/core/callbacks/manager";
 import { maximalMarginalRelevance } from "@langchain/core/utils/math";
 
 export interface PostgresVectorStoreArgs {
@@ -332,58 +331,24 @@ class PostgresVectorStore extends VectorStore {
 
   async maxMarginalRelevanceSearch(
     query: string,
-    options?: MaxMarginalRelevanceSearchOptions<this["FilterType"]>,
-    _callbacks?: Callbacks | undefined
+    options?: MaxMarginalRelevanceSearchOptions<this["FilterType"]>
   ): Promise<Document[]> {
+    
     const vector = await this.embeddings.embedQuery(query);
-    return await this.maxMarginalRelevantSearchByVector(
-      vector,
-      options?.k,
-      options?.fetchK,
-      options?.lambda,
-      options?.filter
-    );
-  }
+    const results = await this.queryCollection(vector, options?.k, options?.filter);
+    const k = options?.k ? options.k : this.k;
+    let documentsWithScores: [Document, number][] = [];
+    let docsList: Document[] = [];
 
-  async maxMarginalRelevantSearchByVector(
-    vector: number[],
-    k?: number,
-    fetchK?: number,
-    lambdaMult?: number,
-    filter?: this["FilterType"]
-  ): Promise<Document[]> {
-    const docsAndScores =
-      await this.maxMarginalRelevanceSearchWithScoreByVector(
-        vector,
-        k,
-        fetchK,
-        lambdaMult,
-        filter
-      );
-    const docsList: Document[] = [];
-
-    for (const docScore in docsAndScores) {
-      docsList.push(docsAndScores[docScore]);
-    }
-
-    return docsList;
-  }
-
-  async maxMarginalRelevanceSearchWithScoreByVector(vector: number[], k?: number, fetchK?: number, lambdaMult?: number, filter?: this["FilterType"]): Promise<Document[]> {
-    const results = await this.queryCollection(vector, k, filter);
-    k = k ? k : this.k;
-    fetchK = fetchK ? fetchK : this.fetchK;
     const embeddingList = results.map((row: { [x: string]: string }) =>
       JSON.parse(row[this.embeddingColumn])
     );
     const mmrSelected = maximalMarginalRelevance(
       vector,
       embeddingList,
-      lambdaMult,
+      options?.lambda,
       k
     );
-
-    let documentsWithScores: [Document, number][] = [];
 
     for (const row of results) {
       const metadata =
@@ -402,9 +367,9 @@ class PostgresVectorStore extends VectorStore {
       ]);
     }
 
-    const enumeratedList = documentsWithScores.filter((_, i) => mmrSelected.includes(i)).map(([doc, _]) => doc);
-    
-    return enumeratedList;
+    docsList = documentsWithScores.filter((_, i) => mmrSelected.includes(i)).map(([doc, _]) => doc);
+
+    return docsList; 
   }
 }
 
