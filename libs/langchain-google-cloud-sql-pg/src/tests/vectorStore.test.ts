@@ -1,5 +1,5 @@
 import { test } from "@jest/globals";
-import PostgresVectorStore, { PostgresVectorStoreArgs } from "../vectorStore.js";
+import PostgresVectorStore, { PostgresVectorStoreArgs, dbConfigArgs } from "../vectorStore.js";
 import PostgresEngine, { Column, PostgresEngineArgs, VectorStoreTableArgs } from "../engine.js";
 import { Document, DocumentInterface } from "@langchain/core/documents";
 import { SyntheticEmbeddings } from "@langchain/core/utils/testing";
@@ -19,7 +19,7 @@ const STORE_METADATA = true;
 
 const embeddingService = new SyntheticEmbeddings({ vectorSize: VECTOR_SIZE });
 const texts = ["foo", "bar", "baz"];
-const metadatas = [];
+const metadatas: Record<string, any>[] = [];
 const docs: DocumentInterface[] = [];
 const embeddings = [];
 
@@ -143,7 +143,35 @@ describe("VectorStore creation", () => {
     expect(vectorStoreInstance).toBeDefined();
   });
 
-  // TODO: Add a test for the delete method
+  test('should create a new VectorStoreInstance using fromTexts method', async () => {
+    const config: dbConfigArgs = {
+      engine: PEInstance,
+      tableName: CUSTOM_TABLE,
+      dbConfig: pvectorArgs
+    }
+
+    const vectorStoreInstance = await PostgresVectorStore.fromTexts(texts, metadatas, embeddingService, config)
+    expect(vectorStoreInstance).toBeDefined();
+
+    const { rows } = await PEInstance.pool.raw(`SELECT * FROM "${CUSTOM_TABLE}"`);
+    expect(rows).toHaveLength(3);
+  });
+
+  test('should create a new VectorStoreInstance using fromDocuments method', async () => {
+    await PEInstance.pool.raw(`TRUNCATE TABLE "${CUSTOM_TABLE}"`);
+
+    const config: dbConfigArgs = {
+      engine: PEInstance,
+      tableName: CUSTOM_TABLE,
+      dbConfig: pvectorArgs
+    }
+
+    const vectorStoreInstance = await PostgresVectorStore.fromDocuments(docs, embeddingService, config)
+    expect(vectorStoreInstance).toBeDefined();
+
+    const { rows } = await PEInstance.pool.raw(`SELECT * FROM "${CUSTOM_TABLE}"`);
+    expect(rows).toHaveLength(3);
+  });
 
   afterAll(async () => {
     await PEInstance.pool.raw(`DROP TABLE "${CUSTOM_TABLE}"`)
@@ -266,7 +294,7 @@ describe("VectorStore methods", () => {
   })
 
   test("maxMarginalRelevanceSearch", async () => {
-    const results = await vectorStoreInstance.maxMarginalRelevanceSearch("bar");
+    const results = await vectorStoreInstance.maxMarginalRelevanceSearch("bar", { k: 4});
     const expected = new Document({ pageContent: "bar" })
     
     expect(results[0]).toMatchObject(expected)    
