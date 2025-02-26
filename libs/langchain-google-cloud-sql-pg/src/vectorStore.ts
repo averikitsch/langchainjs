@@ -22,6 +22,12 @@ export interface PostgresVectorStoreArgs {
   indexQueryOptions?: QueryOptions
 }
 
+export interface dbConfigArgs {
+  engine: PostgresEngine;
+  tableName: string;
+  dbConfig: PostgresVectorStoreArgs;
+}
+
 class PostgresVectorStore extends VectorStore {
   declare FilterType: string;
 
@@ -177,6 +183,39 @@ class PostgresVectorStore extends VectorStore {
         indexQueryOptions
       }
     )
+  }
+
+  static async fromTexts(_texts: string[], _metadatas: object[], _embeddings: Embeddings, _dbConfig: dbConfigArgs): Promise<VectorStore> {
+    const engine = _dbConfig.engine;
+    const tableName = _dbConfig.tableName;
+    const dbConfig = _dbConfig.dbConfig;
+    const vectorStore = await this.create(engine, _embeddings, tableName, dbConfig);
+    const vectors = await _embeddings.embedDocuments(_texts)
+    
+    const documents: Document[] = [];
+
+    for (let i = 0; i < _texts.length; i++) {
+      const doc = new Document({
+        pageContent: _texts[i],
+        metadata: _metadatas[i]
+      })
+      documents.push(doc);
+    } 
+
+    await vectorStore.addVectors(vectors, documents)
+
+    return vectorStore;
+  }
+
+  static async fromDocuments(_docs: Document<Record<string, any>>[], _embeddings: Embeddings, _dbConfig: dbConfigArgs): Promise<VectorStore> {
+    const engine = _dbConfig.engine;
+    const tableName = _dbConfig.tableName;
+    const dbConfig = _dbConfig.dbConfig;
+    const vectorStore = await this.create(engine, _embeddings, tableName, dbConfig);
+
+    await vectorStore.addDocuments(_docs)
+
+    return vectorStore;
   }
 
   async addVectors(vectors: number[][], documents: Document[], options?: { ids?: string[] }): Promise<string[] | void> {
