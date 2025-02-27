@@ -199,13 +199,13 @@ class PostgresVectorStore extends VectorStore {
     return PostgresVectorStore.fromDocuments(documents, embeddings, dbConfig);
   }
 
-  static async fromDocuments(_docs: Document[], embeddings: EmbeddingsInterface, dbConfig: dbConfigArgs): Promise<VectorStore> {
+  static async fromDocuments(docs: Document[], embeddings: EmbeddingsInterface, dbConfig: dbConfigArgs): Promise<VectorStore> {
     const engine = dbConfig.engine;
     const tableName = dbConfig.tableName;
     const config = dbConfig.dbConfig;
     const vectorStore = await this.create(engine, embeddings, tableName, config);
 
-    await vectorStore.addDocuments(_docs)
+    await vectorStore.addDocuments(docs)
 
     return vectorStore;
   }
