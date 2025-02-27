@@ -25,7 +25,7 @@ export interface PostgresVectorStoreArgs {
 export interface dbConfigArgs {
   engine: PostgresEngine;
   tableName: string;
-  dbConfig: PostgresVectorStoreArgs;
+  dbConfig?: PostgresVectorStoreArgs;
 }
 
 class PostgresVectorStore extends VectorStore {
@@ -93,7 +93,7 @@ class PostgresVectorStore extends VectorStore {
    */
   static async create(
     engine: PostgresEngine,
-    embeddings: Embeddings,
+    embeddings: EmbeddingsInterface,
     tableName: string,
     {
       schemaName = "public",
@@ -108,7 +108,7 @@ class PostgresVectorStore extends VectorStore {
       fetchK = 20,
       lambdaMult = 0.5,
       indexQueryOptions
-    }: PostgresVectorStoreArgs
+    }: PostgresVectorStoreArgs = {}
   ): Promise<PostgresVectorStore> {
 
     if (metadataColumns !== undefined && ignoreMetadataColumns !== undefined) {
@@ -185,33 +185,25 @@ class PostgresVectorStore extends VectorStore {
     )
   }
 
-  static async fromTexts(_texts: string[], _metadatas: object[], _embeddings: Embeddings, _dbConfig: dbConfigArgs): Promise<VectorStore> {
-    const engine = _dbConfig.engine;
-    const tableName = _dbConfig.tableName;
-    const dbConfig = _dbConfig.dbConfig;
-    const vectorStore = await this.create(engine, _embeddings, tableName, dbConfig);
-    const vectors = await _embeddings.embedDocuments(_texts)
-    
+  static async fromTexts(texts: string[], metadatas: object[] | object, embeddings: EmbeddingsInterface, dbConfig: dbConfigArgs): Promise<VectorStore> {    
     const documents: Document[] = [];
 
-    for (let i = 0; i < _texts.length; i++) {
+    for (let i = 0; i < texts.length; i++) {
       const doc = new Document({
-        pageContent: _texts[i],
-        metadata: _metadatas[i]
+        pageContent: texts[i],
+        metadata: Array.isArray(metadatas) ? metadatas[i] : metadatas
       })
       documents.push(doc);
-    } 
+    }
 
-    await vectorStore.addVectors(vectors, documents)
-
-    return vectorStore;
+    return PostgresVectorStore.fromDocuments(documents, embeddings, dbConfig);
   }
 
-  static async fromDocuments(_docs: Document<Record<string, any>>[], _embeddings: Embeddings, _dbConfig: dbConfigArgs): Promise<VectorStore> {
-    const engine = _dbConfig.engine;
-    const tableName = _dbConfig.tableName;
-    const dbConfig = _dbConfig.dbConfig;
-    const vectorStore = await this.create(engine, _embeddings, tableName, dbConfig);
+  static async fromDocuments(_docs: Document[], embeddings: EmbeddingsInterface, dbConfig: dbConfigArgs): Promise<VectorStore> {
+    const engine = dbConfig.engine;
+    const tableName = dbConfig.tableName;
+    const config = dbConfig.dbConfig;
+    const vectorStore = await this.create(engine, embeddings, tableName, config);
 
     await vectorStore.addDocuments(_docs)
 
