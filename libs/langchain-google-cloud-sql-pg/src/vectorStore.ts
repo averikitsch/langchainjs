@@ -22,6 +22,12 @@ export interface PostgresVectorStoreArgs {
   indexQueryOptions?: QueryOptions
 }
 
+export interface dbConfigArgs {
+  engine: PostgresEngine;
+  tableName: string;
+  dbConfig?: PostgresVectorStoreArgs;
+}
+
 class PostgresVectorStore extends VectorStore {
   declare FilterType: string;
 
@@ -87,7 +93,7 @@ class PostgresVectorStore extends VectorStore {
    */
   static async create(
     engine: PostgresEngine,
-    embeddings: Embeddings,
+    embeddings: EmbeddingsInterface,
     tableName: string,
     {
       schemaName = "public",
@@ -102,7 +108,7 @@ class PostgresVectorStore extends VectorStore {
       fetchK = 20,
       lambdaMult = 0.5,
       indexQueryOptions
-    }: PostgresVectorStoreArgs
+    }: PostgresVectorStoreArgs = {}
   ): Promise<PostgresVectorStore> {
 
     if (metadataColumns !== undefined && ignoreMetadataColumns !== undefined) {
@@ -177,6 +183,31 @@ class PostgresVectorStore extends VectorStore {
         indexQueryOptions
       }
     )
+  }
+
+  static async fromTexts(texts: string[], metadatas: object[] | object, embeddings: EmbeddingsInterface, dbConfig: dbConfigArgs): Promise<VectorStore> {    
+    const documents: Document[] = [];
+
+    for (let i = 0; i < texts.length; i++) {
+      const doc = new Document({
+        pageContent: texts[i],
+        metadata: Array.isArray(metadatas) ? metadatas[i] : metadatas
+      })
+      documents.push(doc);
+    }
+
+    return PostgresVectorStore.fromDocuments(documents, embeddings, dbConfig);
+  }
+
+  static async fromDocuments(docs: Document[], embeddings: EmbeddingsInterface, dbConfig: dbConfigArgs): Promise<VectorStore> {
+    const engine = dbConfig.engine;
+    const tableName = dbConfig.tableName;
+    const config = dbConfig.dbConfig;
+    const vectorStore = await this.create(engine, embeddings, tableName, config);
+
+    await vectorStore.addDocuments(docs)
+
+    return vectorStore;
   }
 
   async addVectors(vectors: number[][], documents: Document[], options?: { ids?: string[] }): Promise<string[] | void> {
