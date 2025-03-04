@@ -49,7 +49,7 @@ export class PostgresLoader extends BaseDocumentLoader {
 
     private engine: PostgresEngine;
     tableName?: string;
-    schemaName?: string = "public";
+    schemaName?: string;
     contentColumns?: string[];
     metadataColumns?: string[];
     format?: "text" | "json" | "yaml" | "csv";
@@ -60,17 +60,14 @@ export class PostgresLoader extends BaseDocumentLoader {
     constructor(engine: PostgresEngine, options: PostgresLoaderOptions) {
       super();
       this.engine = engine;
-      this.tableName = options.tableName;
-      this.schemaName = options.schemaName;
       this.contentColumns = options.contentColumns;
       this.metadataColumns = options.metadataColumns;
-      this.format = options.format;
       this.query = options.query;
       this.formatter = options.formatter;
       this.metadataJsonColumn = options.metadataJsonColumn;
     }
 
-    static async create(engine: PostgresEngine, {schemaName, tableName, contentColumns, metadataColumns, format, query, formatter, metadataJsonColumn}: PostgresLoaderOptions): Promise<PostgresLoader> {
+    static async create(engine: PostgresEngine, {schemaName = 'public', tableName, contentColumns, metadataColumns, format, query, formatter, metadataJsonColumn}: PostgresLoaderOptions): Promise<PostgresLoader> {
 
       if (tableName && query) {
         throw new Error("Only one of 'table_name' or 'query' should be specified.");
@@ -123,7 +120,7 @@ export class PostgresLoader extends BaseDocumentLoader {
             }
         });
 
-        return new PostgresLoader(engine, {schemaName, tableName, contentColumns, metadataColumns, format, query, formatter, metadataJsonColumn});
+        return new PostgresLoader(engine, {contentColumns, metadataColumns, query, formatter, metadataJsonColumn});
          
     } catch (error: any) {
       throw Error(error);
@@ -139,7 +136,7 @@ export class PostgresLoader extends BaseDocumentLoader {
   }
 
   async *lazyLoad(): AsyncGenerator<Document> {
-    let { query, contentColumns, metadataColumns, formatter, metadataJsonColumn, schemaName, tableName } = this;
+    let { query, contentColumns, metadataColumns, formatter, metadataJsonColumn } = this;
     try {
       const result = await this.engine.pool.raw(query);
 
