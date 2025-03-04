@@ -9,19 +9,15 @@ dotenv.config()
 
 const SCHEMA_NAME = "public";
 const CUSTOM_TABLE = "test_table_custom";
-const ID_COLUMN = "uuid";
-const CONTENT_COLUMN = ["my_content"];
-const METADATA_COLUMNS = ["page", "source"];
+const CONTENT_COLUMN = ["fruit_id","fruit_name","variety","quantity_in_stock","price_per_unit","organic"];
+const METADATA_COLUMNS = ["variety"];
 const FORMATTER = (row: { [key: string]: any }, content_columns: string[]): string => {
   return content_columns
     .filter((column) => column in row)
     .map((column) => String(row[column]))
     .join(" ");
 };
-
-
-const metadatas = [];
-const docs: DocumentInterface[] = [];
+const DEFAULT_METADATA_COL = "langchain_metadata"; 
 
 const pgArgs: PostgresEngineArgs = {
   user: process.env.DB_USER ?? "",
@@ -51,6 +47,24 @@ describe("Document loader creation", () => {
       process.env.DB_NAME ?? "",
       pgArgs
     );
+
+    await PEInstance.pool.raw(`DROP TABLE IF EXISTS "${CUSTOM_TABLE}"`)
+
+
+    await PEInstance.pool.raw(`CREATE TABLE IF NOT EXISTS "${CUSTOM_TABLE}" (
+      fruit_id SERIAL PRIMARY KEY,
+      fruit_name VARCHAR(100) NOT NULL,
+      variety VARCHAR(50),
+      quantity_in_stock INT NOT NULL,
+      price_per_unit INT NOT NULL,
+      organic INT NOT NULL
+    );`)
+  
+      await PEInstance.pool.raw(` INSERT INTO "${CUSTOM_TABLE}" (
+        fruit_name, variety, quantity_in_stock, price_per_unit, organic
+    ) VALUES ('Apple', 'Granny Smith', 150, 1, 1); `)
+
+
   });
 
   test('should throw an error if no table name or query is provided', async () => {
@@ -108,20 +122,35 @@ describe("Document loader creation", () => {
       await expect(createInstance()).rejects.toThrowError("Only one of 'table_name' or 'query' should be specified.");
     });
     
+    test('should throw an error if content columns or metadata columns not match with column names', async () => {
+      const documentLoaderArgs: PostgresLoaderOptions = {
+        tableName: CUSTOM_TABLE,
+        schemaName: SCHEMA_NAME,
+        contentColumns: ["Imnotacolunm"]
+      };
+
+      async function createInstance() {
+        postgresLoaderInstance = await PostgresLoader.create(PEInstance, documentLoaderArgs);
+      }
+
+      await expect(createInstance()).rejects.toThrowError(`Column Imnotacolunm not found in query result fruit_id,fruit_name,variety,quantity_in_stock,price_per_unit,organic.`);
+
+    });
+
   test('should create a new document Loader instance', async () => {
     const documentLoaderArgs:  PostgresLoaderOptions= {
       tableName: CUSTOM_TABLE,
       schemaName: "public",
-      contentColumns: ["my_content"],
-      metadataColumns: ["page", "source"],
+      contentColumns: CONTENT_COLUMN,
+      metadataColumns: METADATA_COLUMNS,
       format: "text",
       query: "",
       formatter: undefined,
     }
 
-    const vectorStoreInstance = await PostgresLoader.create(PEInstance, documentLoaderArgs)
+    const documentLoaderInstace = await PostgresLoader.create(PEInstance, documentLoaderArgs)
 
-    expect(vectorStoreInstance).toBeDefined();
+    expect(documentLoaderInstace).toBeDefined();
   });
 
   afterAll(async () => {
@@ -135,4 +164,69 @@ describe("Document loader creation", () => {
   
 })
 
+describe("Document loader methods", () => { 
+  
+  let PEInstance: PostgresEngine;
+  let postgresLoaderInstance: PostgresLoader;
 
+  beforeAll(async () => {
+    PEInstance = await PostgresEngine.from_instance(
+      process.env.PROJECT_ID ?? "",
+      process.env.REGION ?? "",
+      process.env.INSTANCE_NAME ?? "",
+      process.env.DB_NAME ?? "",
+      pgArgs
+    );
+
+    const documentLoaderArgs: PostgresLoaderOptions = {
+      tableName: CUSTOM_TABLE,
+      schemaName: SCHEMA_NAME,
+      contentColumns: CONTENT_COLUMN,
+      metadataColumns: METADATA_COLUMNS,
+      format: "text",
+      query: "",
+      formatter: undefined,
+    }
+
+
+
+    await PEInstance.pool.raw(`DROP TABLE IF EXISTS "${CUSTOM_TABLE}"`)
+
+    
+    await PEInstance.pool.raw(`CREATE TABLE IF NOT EXISTS "${CUSTOM_TABLE}" (
+      fruit_id SERIAL PRIMARY KEY,
+      fruit_name VARCHAR(100) NOT NULL,
+      variety VARCHAR(50),
+      quantity_in_stock INT NOT NULL,
+      price_per_unit INT NOT NULL,
+      organic INT NOT NULL
+    );`)
+  
+      await PEInstance.pool.raw(` INSERT INTO "${CUSTOM_TABLE}" (
+        fruit_name, variety, quantity_in_stock, price_per_unit, organic
+    ) VALUES ('Apple', 'Granny Smith', 150, 1, 1); `)
+
+
+    postgresLoaderInstance = await PostgresLoader.create(PEInstance, documentLoaderArgs)
+
+
+})
+ 
+test('should load documents correctly', async () => {
+  const documents = await postgresLoaderInstance.load();
+  expect(documents).toBeDefined();
+  expect(documents.length).toBeGreaterThan(0);
+  expect(documents[0]).toHaveProperty('pageContent');
+  expect(documents[0]).toHaveProperty('metadata');
+});
+
+
+afterAll(async () => {
+  try {
+    await PEInstance.closeConnection();
+  } catch (error) {
+    throw new Error(`Error on closing connection: ${error}`);
+  }
+})
+
+})

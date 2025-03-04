@@ -3,6 +3,9 @@ import { Document } from "@langchain/core/documents";
 import { BaseDocumentLoader } from '@langchain/core/document_loaders/base';
 import { textFormatter, csvFormatter, yamlFormatter, jsonFormatter } from './utils/utils.js';
 
+const DEFAULT_METADATA_COL = "langchain_metadata";
+type Row = { [key: string]: any };
+
 // Options for PostgresLoader
 export interface PostgresLoaderOptions {
   tableName?: string;
@@ -10,25 +13,61 @@ export interface PostgresLoaderOptions {
   contentColumns?: string[];
   metadataColumns?: string[];
   format?: "text" | "json" | "yaml" | "csv";
-  formatter?: (row: { [key: string]: any }, contentColumns: string[]) => string;
+  formatter?: (row: Row, contentColumns: string[]) => string;
   query?: string;
-  metadataJsonColumn?: string;
+  metadataJsonColumn?: string | null;
+}
+
+
+function parseDocFromRow(
+    contentColumns: string[],
+    metadataColumns: string[],
+    row: Row,
+    metadataJsonColumn: string | null = DEFAULT_METADATA_COL,
+    formatter: (row: Row, contentColumns: string[]) => string = textFormatter
+): Document {
+    const pageContent = formatter(row, contentColumns);
+    const metadata: { [key: string]: any } = {};
+
+    if (metadataJsonColumn && row[metadataJsonColumn]) {
+        Object.entries(row[metadataJsonColumn]).forEach(([k, v]) => {
+            metadata[k] = v;
+        });
+    }
+
+    metadataColumns.forEach(column => {
+        if (column in row && column !== metadataJsonColumn) {
+            metadata[column] = row[column];
+        }
+    });
+
+
+    return { pageContent, metadata };
 }
 
 export class PostgresLoader extends BaseDocumentLoader {
 
     private engine: PostgresEngine;
-    private options: PostgresLoaderOptions;
+    tableName?: string;
+    schemaName?: string;
+    contentColumns?: string[];
+    metadataColumns?: string[];
+    format?: "text" | "json" | "yaml" | "csv";
+    formatter?: (row: Row, contentColumns: string[]) => string;
+    query?: string;
+    metadataJsonColumn?: string | null;
   
     constructor(engine: PostgresEngine, options: PostgresLoaderOptions) {
       super();
       this.engine = engine;
-      this.options = options;
+      this.contentColumns = options.contentColumns;
+      this.metadataColumns = options.metadataColumns;
+      this.query = options.query;
+      this.formatter = options.formatter;
+      this.metadataJsonColumn = options.metadataJsonColumn;
     }
 
-    static async create(engine: PostgresEngine, options: PostgresLoaderOptions): Promise<PostgresLoader> {
-
-      let { schemaName, tableName, contentColumns, metadataColumns, format, query, formatter, metadataJsonColumn } = options;
+    static async create(engine: PostgresEngine, {schemaName = 'public', tableName, contentColumns, metadataColumns, format, query, formatter, metadataJsonColumn}: PostgresLoaderOptions): Promise<PostgresLoader> {
 
       if (tableName && query) {
         throw new Error("Only one of 'table_name' or 'query' should be specified.");
@@ -44,8 +83,7 @@ export class PostgresLoader extends BaseDocumentLoader {
         throw new Error("format must be type: 'csv', 'text', 'json', 'yaml'");
       }
 
-      if (options.formatter !== undefined) {
-        // use provided formatter
+      if (formatter !== undefined) {
       } else if (format === "csv") {
         formatter = csvFormatter;
       } else if (format === "yaml") {
@@ -60,10 +98,69 @@ export class PostgresLoader extends BaseDocumentLoader {
         query = `SELECT * FROM "${schemaName}"."${tableName}"`;
       }
 
-      return new PostgresLoader(engine, options);
-    }
+      try {
+        const result = await engine.pool.raw(query);
+        const columnNames = result.fields.map((field: { name: any; }) => field.name);
 
-    async load(): Promise<Document[]> {
-      throw new Error('Method not implemented.');
+        contentColumns = contentColumns || [columnNames[0]];
+        metadataColumns = metadataColumns || columnNames.filter((col: string) => !contentColumns.includes(col));
+
+        if (metadataJsonColumn && !columnNames.includes(metadataJsonColumn)) {
+            throw new Error(`Column ${metadataJsonColumn} not found in query result ${columnNames}.`);
+        }
+
+        if (!metadataJsonColumn && columnNames.includes(DEFAULT_METADATA_COL)) {
+            metadataJsonColumn = DEFAULT_METADATA_COL;
+        }
+
+        const allNames = [...(contentColumns || []), ...(metadataColumns || [])];
+        allNames.forEach(name => {
+            if (!columnNames.includes(name)) {
+                throw new Error(`Column ${name} not found in query result ${columnNames}.`);
+            }
+        });
+
+        return new PostgresLoader(engine, {contentColumns, metadataColumns, query, formatter, metadataJsonColumn});
+         
+    } catch (error: any) {
+      throw Error(error);
     }
   }
+
+  async load(): Promise<Document[]> {
+    const documents: Document[] = [];
+      for await (const doc of this.lazyLoad()) {
+          documents.push(doc);
+      }
+      return documents;
+  }
+
+  async *lazyLoad(): AsyncGenerator<Document> {
+    let { query, contentColumns, metadataColumns, formatter, metadataJsonColumn } = this;
+    try {
+      const result = await this.engine.pool.raw(query);
+
+      for (const row of result.rows) {
+          const rowData: Row = {};
+          const columnNames = [...(contentColumns || []), ...(metadataColumns || [])];
+          if (metadataJsonColumn) {
+              columnNames.push(metadataJsonColumn);
+          }
+          columnNames.forEach(column => {
+              rowData[column] = row[column];
+          });
+
+          yield parseDocFromRow(
+              contentColumns || [],
+              metadataColumns || [],
+              rowData,
+              metadataJsonColumn,
+              formatter
+          );
+      }
+    } catch (error: any) {
+      throw Error(error);
+    }
+
+  }
+}
