@@ -73,7 +73,7 @@ class PostgresEngine {
    * @returns PostgresEngine instance
    */
 
-  static async from_instance(
+  static async fromInstance(
     projectId: string,
     region: string,
     instance: string,
@@ -140,7 +140,7 @@ class PostgresEngine {
    * @param engine knex instance
    * @returns PostgresEngine instance from a knex instance
    */
-  static async from_engine(engine: knex.Knex<any, any[]>) {
+  static async fromEngine(engine: knex.Knex<any, any[]>) {
     return new PostgresEngine(PostgresEngine._createKey, engine)
   }
 
@@ -151,7 +151,7 @@ class PostgresEngine {
    * @param poolConfig Optional - Configuration pool to use in the Knex configuration
    * @returns PostgresEngine instance
    */
-  static async from_engine_args(url: string | knex.Knex.StaticConnectionConfig, poolConfig?: knex.Knex.PoolConfig) {
+  static async fromEngineArgs(url: string | knex.Knex.StaticConnectionConfig, poolConfig?: knex.Knex.PoolConfig) {
 
     const driver = 'postgresql+asyncpg';
 
@@ -188,7 +188,7 @@ class PostgresEngine {
    * @param overwriteExisting Whether to drop existing table. Default: False.
    * @param storeMetadata Whether to store metadata in the table. Default: True.
    */
-  async init_vectorstore_table(
+  async initVectorstoreTable(
     tableName: string,
     vectorSize: number,
     {
@@ -237,7 +237,7 @@ class PostgresEngine {
    * @param schemaName Schema name to store chat history table
    */
 
-  async init_chat_history_table(tableName: string, schemaName: string = "public"): Promise<void> {
+  async initChatHistoryTable(tableName: string, schemaName: string = "public"): Promise<void> {
     await this.pool.raw(
       `CREATE TABLE IF NOT EXISTS ${schemaName}.${tableName}(
       id SERIAL PRIMARY KEY,
