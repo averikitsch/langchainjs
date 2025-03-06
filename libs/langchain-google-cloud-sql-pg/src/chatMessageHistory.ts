@@ -2,8 +2,15 @@ import { BaseChatMessageHistory } from "@langchain/core/chat_history";
 import { BaseMessage } from "@langchain/core/messages";
 import PostgresEngine from "./engine.js";
 
+export interface PostgresChatMessageHistoryArgs {
+  engine: PostgresEngine;
+  sessionId: string;
+  tableName: string;
+  schemaName: string;
+}
+
 export class PostgresChatMessageHistory extends BaseChatMessageHistory {
-  lc_namespace: string[];
+  lc_namespace: string[] = ["langchain", "stores", "message", "google-cloud-sql-pg"];
 
   engine: PostgresEngine;
   
@@ -13,7 +20,7 @@ export class PostgresChatMessageHistory extends BaseChatMessageHistory {
   
   schemaName: string;
 
-  constructor(engine: PostgresEngine, sessionId: string, tableName: string, schemaName: string = "public") {
+  constructor({engine, sessionId, tableName, schemaName} : PostgresChatMessageHistoryArgs) {
     super();
     this.engine = engine;
     this.sessionId = sessionId;
@@ -61,7 +68,7 @@ export class PostgresChatMessageHistory extends BaseChatMessageHistory {
       `);
     }
 
-    return new PostgresChatMessageHistory(engine, sessionId, tableName)
+    return new PostgresChatMessageHistory({engine, sessionId, tableName, schemaName})
   }
 
   addUserMessage(message: string): Promise<void> {
