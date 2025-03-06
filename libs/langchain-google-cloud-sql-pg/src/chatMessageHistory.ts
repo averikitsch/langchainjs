@@ -2,7 +2,7 @@ import { BaseChatMessageHistory } from "@langchain/core/chat_history";
 import { BaseMessage } from "@langchain/core/messages";
 import PostgresEngine from "./engine.js";
 
-export interface PostgresChatMessageHistoryArgs {
+export interface PostgresChatMessageHistoryInput {
   engine: PostgresEngine;
   sessionId: string;
   tableName: string;
@@ -20,7 +20,7 @@ export class PostgresChatMessageHistory extends BaseChatMessageHistory {
   
   schemaName: string;
 
-  constructor({engine, sessionId, tableName, schemaName} : PostgresChatMessageHistoryArgs) {
+  constructor({engine, sessionId, tableName, schemaName = "public"} : PostgresChatMessageHistoryInput) {
     super();
     this.engine = engine;
     this.sessionId = sessionId;
