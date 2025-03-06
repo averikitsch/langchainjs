@@ -40,7 +40,7 @@ describe("Document loader creation", () => {
   let postgresLoaderInstance: PostgresLoader;
 
   beforeAll(async () => {
-    PEInstance = await PostgresEngine.from_instance(
+    PEInstance = await PostgresEngine.fromInstance(
       process.env.PROJECT_ID ?? "",
       process.env.REGION ?? "",
       process.env.INSTANCE_NAME ?? "",
@@ -170,7 +170,7 @@ describe("Document loader methods", () => {
   let postgresLoaderInstance: PostgresLoader;
 
   beforeAll(async () => {
-    PEInstance = await PostgresEngine.from_instance(
+    PEInstance = await PostgresEngine.fromInstance(
       process.env.PROJECT_ID ?? "",
       process.env.REGION ?? "",
       process.env.INSTANCE_NAME ?? "",

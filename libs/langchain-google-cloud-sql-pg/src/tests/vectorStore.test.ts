@@ -56,7 +56,7 @@ describe("VectorStore creation", () => {
   let vectorStoreInstance: PostgresVectorStore;
 
   beforeAll(async () => {
-    PEInstance = await PostgresEngine.from_instance(
+    PEInstance = await PostgresEngine.fromInstance(
       process.env.PROJECT_ID ?? "",
       process.env.REGION ?? "",
       process.env.INSTANCE_NAME ?? "",
@@ -65,7 +65,7 @@ describe("VectorStore creation", () => {
     );
 
     await PEInstance.pool.raw(`DROP TABLE IF EXISTS ${CUSTOM_TABLE}`)
-    await PEInstance.init_vectorstore_table(CUSTOM_TABLE, VECTOR_SIZE, vsTableArgs);
+    await PEInstance.initVectorstoreTable(CUSTOM_TABLE, VECTOR_SIZE, vsTableArgs);
   });
 
   test('should throw an error if metadataColumns and ignoreMetadataColumns are defined', async () => {
@@ -190,7 +190,7 @@ describe("VectorStore methods", () => {
   let vectorStoreInstance: PostgresVectorStore;
 
   beforeAll(async () => {
-    PEInstance = await PostgresEngine.from_instance(
+    PEInstance = await PostgresEngine.fromInstance(
       process.env.PROJECT_ID ?? "",
       process.env.REGION ?? "",
       process.env.INSTANCE_NAME ?? "",
@@ -199,7 +199,7 @@ describe("VectorStore methods", () => {
     );
 
     await PEInstance.pool.raw(`DROP TABLE IF EXISTS "${CUSTOM_TABLE}"`)
-    await PEInstance.init_vectorstore_table(CUSTOM_TABLE, VECTOR_SIZE, vsTableArgs);
+    await PEInstance.initVectorstoreTable(CUSTOM_TABLE, VECTOR_SIZE, vsTableArgs);
     vectorStoreInstance = await PostgresVectorStore.create(PEInstance, embeddingService, CUSTOM_TABLE, pvectorArgs)
   });
 

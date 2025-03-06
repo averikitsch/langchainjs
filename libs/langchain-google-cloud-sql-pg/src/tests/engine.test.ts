@@ -31,7 +31,7 @@ describe("PostgresEngine Instance creation", () => {
     }
 
     async function createInstance() {
-      PEInstance = await PostgresEngine.from_instance(
+      PEInstance = await PostgresEngine.fromInstance(
         process.env.PROJECT_ID ?? "",
         process.env.REGION ?? "",
         process.env.INSTANCE_NAME ?? "",
@@ -53,7 +53,7 @@ describe("PostgresEngine Instance creation", () => {
       password: process.env.PASSWORD ?? ""
     }
 
-    PEInstance = await PostgresEngine.from_instance(
+    PEInstance = await PostgresEngine.fromInstance(
       process.env.PROJECT_ID ?? "",
       process.env.REGION ?? "",
       process.env.INSTANCE_NAME ?? "",
@@ -78,7 +78,7 @@ describe("PostgresEngine Instance creation", () => {
       iamAccountEmail: process.env.EMAIL ?? ""
     }
 
-    PEInstance = await PostgresEngine.from_instance(
+    PEInstance = await PostgresEngine.fromInstance(
       process.env.PROJECT_ID ?? "",
       process.env.REGION ?? "",
       process.env.INSTANCE_NAME ?? "",
@@ -116,7 +116,7 @@ describe("PostgresEngine Instance creation", () => {
     };
 
     const engine = knex(dbConfig)
-    PEInstance = await PostgresEngine.from_engine(engine)
+    PEInstance = await PostgresEngine.fromEngine(engine)
 
     const {rows} = await PEInstance.testConnection();
     const currentTimestamp = rows[0].currenttimestamp;
@@ -133,7 +133,7 @@ describe("PostgresEngine Instance creation", () => {
     const url = "";
 
     async function createInstance() {
-      PEInstance = await PostgresEngine.from_engine_args(url);
+      PEInstance = await PostgresEngine.fromEngineArgs(url);
     }
 
     await expect(createInstance).rejects.toBe("Driver must be type 'postgresql+asyncpg'");
@@ -142,7 +142,7 @@ describe("PostgresEngine Instance creation", () => {
   test('should create a PostgresEngine Instance through from_engine_args using a URL', async () => {
     const url = `postgresql+asyncpg://${process.env.DB_USER}:${process.env.PASSWORD}@${process.env.HOST}:5432/${process.env.DB_NAME}`
 
-    PEInstance = await PostgresEngine.from_engine_args(url, poolConfig);
+    PEInstance = await PostgresEngine.fromEngineArgs(url, poolConfig);
 
     const {rows} = await PEInstance.testConnection();
     const currentTimestamp = rows[0].currenttimestamp;
@@ -165,7 +165,7 @@ describe('PostgresEngine - table initialization', () => {
       password: process.env.PASSWORD ?? ""
     }
 
-    PEInstance = await PostgresEngine.from_instance(
+    PEInstance = await PostgresEngine.fromInstance(
       process.env.PROJECT_ID ?? "",
       process.env.REGION ?? "",
       process.env.INSTANCE_NAME ?? "",
@@ -184,7 +184,7 @@ describe('PostgresEngine - table initialization', () => {
       overwriteExisting: true
     };
 
-    await PEInstance.init_vectorstore_table(CUSTOM_TABLE, VECTOR_SIZE, vsTableArgs);
+    await PEInstance.initVectorstoreTable(CUSTOM_TABLE, VECTOR_SIZE, vsTableArgs);
 
     const query = `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${CUSTOM_TABLE}';`
     const expected = [
@@ -204,7 +204,7 @@ describe('PostgresEngine - table initialization', () => {
   })
 
   test('should create the chat history table',async () => {
-    await PEInstance.init_chat_history_table(CHAT_MSG_TABLE);
+    await PEInstance.initChatHistoryTable(CHAT_MSG_TABLE);
 
     const query = `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${CHAT_MSG_TABLE}';`
     const expected = [
