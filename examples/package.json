@@ -51,6 +51,7 @@
     "@langchain/google-vertexai": "workspace:*",
     "@langchain/google-vertexai-web": "workspace:*",
     "@langchain/groq": "workspace:*",
+    "@langchain/langchain-google-cloud-sql-pg": "workspace:^",
     "@langchain/langgraph": "^0.2.3",
     "@langchain/mistralai": "workspace:*",
     "@langchain/mongodb": "workspace:*",
