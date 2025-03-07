@@ -17,7 +17,7 @@ describe("ChatMessageHistory creation", () => {
   let PEInstance: PostgresEngine;
 
   beforeAll(async () => {
-    PEInstance = await PostgresEngine.from_instance(
+    PEInstance = await PostgresEngine.fromInstance(
       process.env.PROJECT_ID ?? "",
       process.env.REGION ?? "",
       process.env.INSTANCE_NAME ?? "",
@@ -59,7 +59,7 @@ describe("ChatMessageHistory creation", () => {
   })
 
   test("should create a new PostgresChatMessageHistory instance", async () => {
-    await PEInstance.init_chat_history_table(CHAT_MSG_TABLE )
+    await PEInstance.initChatHistoryTable(CHAT_MSG_TABLE )
 
     const historyInstace = await PostgresChatMessageHistory.create(PEInstance, "test", CHAT_MSG_TABLE )
     
@@ -83,7 +83,7 @@ describe("ChatMessageHistory methods", () => {
   let historyInstace: PostgresChatMessageHistory;
 
   beforeAll(async () => {
-    PEInstance = await PostgresEngine.from_instance(
+    PEInstance = await PostgresEngine.fromInstance(
       process.env.PROJECT_ID ?? "",
       process.env.REGION ?? "",
       process.env.INSTANCE_NAME ?? "",
@@ -92,7 +92,7 @@ describe("ChatMessageHistory methods", () => {
     );
 
     await PEInstance.pool.raw(`DROP TABLE IF EXISTS ${CHAT_MSG_TABLE }`)
-    await PEInstance.init_chat_history_table(CHAT_MSG_TABLE )
+    await PEInstance.initChatHistoryTable(CHAT_MSG_TABLE )
     historyInstace = await PostgresChatMessageHistory.create(PEInstance, "test", CHAT_MSG_TABLE )
   });
 
