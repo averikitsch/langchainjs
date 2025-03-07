@@ -2,6 +2,7 @@ import { test } from "@jest/globals";
 import * as dotenv from "dotenv";
 import PostgresEngine, { PostgresEngineArgs } from "../engine.js";
 import { PostgresChatMessageHistory } from "../chatMessageHistory.js";
+import { AIMessage, BaseMessage, HumanMessage } from "@langchain/core/messages";
 
 dotenv.config()
 
@@ -64,6 +65,59 @@ describe("ChatMessageHistory creation", () => {
     
     expect(historyInstace).toBeDefined();
   })
+
+  afterAll(async () => {
+    await PEInstance.pool.raw(`DROP TABLE "${CHAT_MSG_TABLE }"`)
+
+    try {
+      await PEInstance.closeConnection();
+    } catch (error) {
+      throw new Error(`Error on closing connection: ${error}`);
+    }
+  })
+});
+
+
+describe("ChatMessageHistory methods", () => {
+  let PEInstance: PostgresEngine;
+  let historyInstace: PostgresChatMessageHistory;
+
+  beforeAll(async () => {
+    PEInstance = await PostgresEngine.from_instance(
+      process.env.PROJECT_ID ?? "",
+      process.env.REGION ?? "",
+      process.env.INSTANCE_NAME ?? "",
+      process.env.DB_NAME ?? "",
+      pgArgs
+    );
+
+    await PEInstance.pool.raw(`DROP TABLE IF EXISTS ${CHAT_MSG_TABLE }`)
+    await PEInstance.init_chat_history_table(CHAT_MSG_TABLE )
+    historyInstace = await PostgresChatMessageHistory.create(PEInstance, "test", CHAT_MSG_TABLE )
+  });
+
+  test("should add a message to the store", async () => {
+    const msg1 = new HumanMessage("Hi!")
+    const msg2 = new AIMessage("what's up?")
+    
+    await historyInstace.addMessage(msg1);
+    await historyInstace.addMessage(msg2)
+
+    const { rows } = await PEInstance.pool.raw(`SELECT * FROM "${CHAT_MSG_TABLE}"`);
+    expect(rows).toHaveLength(2);
+  });
+
+  test("should add a list of messages to the store", async () => {
+    await PEInstance.pool.raw(`TRUNCATE TABLE "${CHAT_MSG_TABLE}"`);
+    const msg1 = new HumanMessage("Hi!")
+    const msg2 = new AIMessage("what's up?")
+    const msg3 = new HumanMessage("How are you?")
+    const messages: BaseMessage[] = [msg1, msg2, msg3]
+    await historyInstace.addMessages(messages);
+
+    const { rows } = await PEInstance.pool.raw(`SELECT * FROM "${CHAT_MSG_TABLE}"`);
+    expect(rows).toHaveLength(3);
+  });
 
   afterAll(async () => {
     await PEInstance.pool.raw(`DROP TABLE "${CHAT_MSG_TABLE }"`)
