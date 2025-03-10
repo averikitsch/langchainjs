@@ -1,5 +1,5 @@
 import { BaseChatMessageHistory } from "@langchain/core/chat_history";
-import { BaseMessage } from "@langchain/core/messages";
+import { AIMessage, BaseMessage, HumanMessage } from "@langchain/core/messages";
 import PostgresEngine from "./engine.js";
 
 export interface PostgresChatMessageHistoryInput {
@@ -72,19 +72,40 @@ export class PostgresChatMessageHistory extends BaseChatMessageHistory {
   }
 
   addUserMessage(message: string): Promise<void> {
-    throw new Error("Method not implemented.");
+    return this.addMessage(new HumanMessage(message));
   }
 
   addAIChatMessage(message: string): Promise<void> {
-    throw new Error("Method not implemented.");
+    return this.addMessage(new AIMessage(message));
   }
 
   getMessages(): Promise<BaseMessage[]> {
     throw new Error("Method not implemented.");
   }
 
-  addMessage(): Promise<void> {
-    throw new Error("Method not implemented.");
+  /**
+   * Add a message object to the store.
+   * @param {BaseMessage} message Message to be added to the store
+   */
+  async addMessage(message: BaseMessage): Promise<void> {
+    const query = `INSERT INTO "${this.schemaName}"."${this.tableName}"("session_id", "data", "type") VALUES (:session_id, :data, :type)`;
+    const values: { [key: string]: any } = {
+      session_id: this.sessionId,
+      data: JSON.stringify(message.toDict()),
+      type: message.getType()
+    }
+
+    await this.engine.pool.raw(query, values)
+  }
+
+  /**
+   * Add a list of messages object to the store.
+   * @param {Array<BaseMessage>} messages List of messages to be added to the store
+   */
+  async addMessages(messages: BaseMessage[]): Promise<void> {
+    for (const msg of messages) {
+      await this.addMessage(msg) 
+    }
   }
 
   clear(): Promise<void> {
