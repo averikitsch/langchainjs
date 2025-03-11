@@ -1,4 +1,11 @@
-import { PostgresEngine, PostgresEngineArgs, PostgresVectorStore, PostgresVectorStoreArgs } from "@langchain/langchain-google-cloud-sql-pg";
+import {
+  Column,
+  PostgresEngine,
+  PostgresEngineArgs,
+  PostgresVectorStore,
+  PostgresVectorStoreArgs,
+  VectorStoreTableArgs,
+} from "@langchain/google-cloud-sql-pg";
 import { SyntheticEmbeddings } from "@langchain/core/utils/testing";
 import type { Document } from "@langchain/core/documents";
 import { v4 as uuidv4 } from "uuid";
@@ -25,11 +32,18 @@ const pvectorArgs: PostgresVectorStoreArgs = {
   contentColumn: "my_content",
   embeddingColumn: "my_embedding",
   metadataColumns: ["page", "source"],
-  metadataJsonColumn: "my_metadata",
+};
+
+const vectorStoreArgs: VectorStoreTableArgs = {
+  metadataColumns: [new Column("page", "TEXT"), new Column("source", "TEXT")],
 };
 
 // Vector store table initilization
-await engine.initVectorstoreTable("my_vector_store_table", 768);
+await engine.initVectorstoreTable(
+  "my_vector_store_table",
+  768,
+  vectorStoreArgs
+);
 const embeddingService = new SyntheticEmbeddings({ vectorSize: 768 });
 
 // PostgresVectorStore instantiation

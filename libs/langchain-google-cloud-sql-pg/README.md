@@ -1,4 +1,4 @@
-# LangChain package for CloudSQL for Postgress
+# @langchain/google-cloud-sql-pg
 
 The LangChain package for CloudSQL for Postgres provides a way to connect to Cloud SQL instances from the LangChain ecosystem.
 
@@ -7,7 +7,7 @@ Main features:
 * The package creates a shared connection pool to connect to Google Cloud Postgress databases utilizing different ways for authentication such as IAM, user and password authorization.
 * Store metadata in columns instead of JSON, resulting in significant performance improvements.
 
-##  Quick Start
+##  Before you begin
 
 In order to use this package, you first need to go throught the following steps:
 1.  [Select or create a Cloud Platform project.](https://console.cloud.google.com/project)
@@ -18,7 +18,7 @@ In order to use this package, you first need to go throught the following steps:
 ### Installation
 
 ```bash
-$ yarn add @langchain/langchain-google-cloud-sql-pg
+$ yarn add @langchain/google-cloud-sql-pg
 ```
 
 ## Example usage
@@ -28,7 +28,7 @@ $ yarn add @langchain/langchain-google-cloud-sql-pg
 Before you use the PostgresVectorStore you will need to create a postgres connection through the PostgresEngine interface.
 
 ```javascript
-import { PostgresEngine, PostgresEngineArgs, PostgresVectorStore } from "@langchain/langchain-google-cloud-sql-pg";
+import { PostgresEngine, PostgresEngineArgs, PostgresVectorStore } from "@langchain/google-cloud-sql-pg";
 import { SyntheticEmbeddings } from "@langchain/core/utils/testing";
 
 const pgArgs: PostgresEngineArgs = {
