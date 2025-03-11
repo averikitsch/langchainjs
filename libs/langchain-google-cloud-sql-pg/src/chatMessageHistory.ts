@@ -1,5 +1,5 @@
 import { BaseChatMessageHistory } from "@langchain/core/chat_history";
-import { AIMessage, BaseMessage, HumanMessage } from "@langchain/core/messages";
+import { AIMessage, BaseMessage, HumanMessage, StoredMessage, mapStoredMessagesToChatMessages } from "@langchain/core/messages";
 import PostgresEngine from "./engine.js";
 
 export interface PostgresChatMessageHistoryInput {
@@ -79,8 +79,29 @@ export class PostgresChatMessageHistory extends BaseChatMessageHistory {
     return this.addMessage(new AIMessage(message));
   }
 
-  getMessages(): Promise<BaseMessage[]> {
-    throw new Error("Method not implemented.");
+  /**
+   * Returns a list of messages stored in the store.
+   */
+  async getMessages(): Promise<BaseMessage[]> {
+    const query = `SELECT data, type FROM "${this.schemaName}"."${this.tableName}" WHERE session_id = :session_id ORDER BY id;`;
+    const values: { [key: string]: any } = {
+      session_id: this.sessionId,
+    };
+    const items: StoredMessage[] = [];
+    const { rows } = await this.engine.pool.raw(query, values);
+
+    if (rows.length === 0) {
+      return [];
+    }
+
+    for (const row of rows) {
+      items.push({
+        data: row["data"]["data"],
+        type: row["type"],
+      });
+    }
+
+    return mapStoredMessagesToChatMessages(items);
   }
 
   /**
@@ -108,7 +129,15 @@ export class PostgresChatMessageHistory extends BaseChatMessageHistory {
     }
   }
 
-  clear(): Promise<void> {
-    throw new Error("Method not implemented.");
+  /**
+   * Remove all messages from the store.
+   */
+  async clear(): Promise<void> {
+    const query = `DELETE FROM "${this.schemaName}"."${this.tableName}" WHERE session_id = :session_id;`;
+    const values: { [key: string]: any } = {
+      session_id: this.sessionId,
+    };
+
+    await this.engine.pool.raw(query, values)
   }
 }
