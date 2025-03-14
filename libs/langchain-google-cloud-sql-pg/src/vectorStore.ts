@@ -1,4 +1,4 @@
-import { Embeddings, EmbeddingsInterface } from "@langchain/core/embeddings";
+import { EmbeddingsInterface } from "@langchain/core/embeddings";
 import { MaxMarginalRelevanceSearchOptions, VectorStore } from "@langchain/core/vectorstores";
 import { Document } from "@langchain/core/documents";
 import { v4 as uuidv4 } from "uuid";
@@ -28,7 +28,7 @@ export interface dbConfigArgs {
   dbConfig?: PostgresVectorStoreArgs;
 }
 
-class PostgresVectorStore extends VectorStore {
+export class PostgresVectorStore extends VectorStore {
   declare FilterType: string;
 
   engine: PostgresEngine;
@@ -347,12 +347,11 @@ class PostgresVectorStore extends VectorStore {
     const _filter = filter !== undefined ? `WHERE ${filter}` : "";
     const metadataColNames = this.metadataColumns.length > 0 ? `"${this.metadataColumns.join("\",\"")}"` : "";
     const metadataJsonColName = this.metadataJsonColumn ? `, "${this.metadataJsonColumn}"` : "";
-    let results;
 
     const query = `SELECT "${this.idColumn}", "${this.contentColumn}", "${this.embeddingColumn}", ${metadataColNames} ${metadataJsonColName}, ${searchFunction}("${this.embeddingColumn}", '[${embedding}]') as distance FROM "${this.schemaName}"."${this.tableName}" ${_filter} ORDER BY "${this.embeddingColumn}" ${operator} '[${embedding}]' LIMIT ${k};` 
 
     if (this.indexQueryOptions) {
-      results = await this.engine.pool.raw(`SET LOCAL ${this.indexQueryOptions.to_string()}`)
+      await this.engine.pool.raw(`SET LOCAL ${this.indexQueryOptions.to_string()}`)
     }
 
     const {rows} = await this.engine.pool.raw(query);

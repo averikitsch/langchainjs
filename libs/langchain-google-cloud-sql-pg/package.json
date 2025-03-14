@@ -1,5 +1,5 @@
 {
-  "name": "@langchain/langchain-google-cloud-sql-pg",
+  "name": "@langchain/google-cloud-sql-pg",
   "version": "0.0.1",
   "description": "LangChain.js integrations for Google Cloud SQL for PostgreSQL",
   "type": "module",
@@ -14,7 +14,7 @@
   },
   "homepage": "https://github.com/langchain-ai/langchainjs/tree/main/libs/langchain-google-cloud-sql-pg/",
   "scripts": {
-    "build": "yarn turbo:command build:internal --filter=@langchain/langchain-google-cloud-sql-pg",
+    "build": "yarn turbo:command build:internal --filter=@langchain/google-cloud-sql-pg",
     "build:internal": "yarn lc_build --create-entrypoints --pre --tree-shaking",
     "lint:eslint": "NODE_OPTIONS=--max-old-space-size=4096 eslint --cache --ext .ts,.js src/",
     "lint:dpdm": "dpdm --exit-code circular:1 --no-warning --no-tree src/*.ts src/**/*.ts",
@@ -67,7 +67,11 @@
   },
   "exports": {
     ".": {
-      "types": "./index.d.ts",
+      "types": {
+        "import": "./index.d.ts",
+        "require": "./index.d.cts",
+        "default": "./index.d.ts"
+      },
       "import": "./index.js",
       "require": "./index.cjs"
     },
@@ -77,6 +81,7 @@
     "dist/",
     "index.cjs",
     "index.js",
-    "index.d.ts"
+    "index.d.ts",
+    "index.d.cts"
   ]
 }

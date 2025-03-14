@@ -48,7 +48,7 @@ export class Column {
 
 const USER_AGENT = "langchain-google-cloud-sql-pg-js";
 
-class PostgresEngine {
+export class PostgresEngine {
 
   private static _createKey = Symbol();
   pool: knex.Knex<any, any[]>;
@@ -83,7 +83,7 @@ class PostgresEngine {
       user, 
       password,
       iamAccountEmail
-    }: PostgresEngineArgs): Promise<PostgresEngine> {
+    }: PostgresEngineArgs = {}): Promise<PostgresEngine> {
 
     let dbUser: string;
     let enableIAMAuth: boolean;
@@ -200,7 +200,7 @@ class PostgresEngine {
     idColumn = "langchain_id",
     overwriteExisting = false,
     storeMetadata = true
-  }: VectorStoreTableArgs): Promise<void> {
+  }: VectorStoreTableArgs = {}): Promise<void> {
 
     await this.pool.raw("CREATE EXTENSION IF NOT EXISTS vector")
 
