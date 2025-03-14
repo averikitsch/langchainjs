@@ -1,7 +1,6 @@
 import { test } from "@jest/globals";
 import  { PostgresLoader, PostgresLoaderOptions } from "../DocumentLoader.js";
 import PostgresEngine, { PostgresEngineArgs } from "../engine.js";
-import { Document, DocumentInterface } from "@langchain/core/documents";
 
 import * as dotenv from "dotenv";
 
@@ -17,27 +16,14 @@ const FORMATTER = (row: { [key: string]: any }, content_columns: string[]): stri
     .map((column) => String(row[column]))
     .join(" ");
 };
-const DEFAULT_METADATA_COL = "langchain_metadata"; 
 
 const pgArgs: PostgresEngineArgs = {
   user: process.env.DB_USER ?? "",
   password: process.env.PASSWORD ?? ""
 }
 
-const documentLoaderArgs: PostgresLoaderOptions = {
-  tableName: CUSTOM_TABLE,
-  schemaName: SCHEMA_NAME,
-  contentColumns: CONTENT_COLUMN,
-  metadataColumns: METADATA_COLUMNS,
-  format: "text",
-  query: "",
-  formatter: FORMATTER,
-};
-
-
 describe("Document loader creation", () => {
   let PEInstance: PostgresEngine;
-  let postgresLoaderInstance: PostgresLoader;
 
   beforeAll(async () => {
     PEInstance = await PostgresEngine.fromInstance(
@@ -74,7 +60,7 @@ describe("Document loader creation", () => {
     }
 
     async function createInstance() {
-      postgresLoaderInstance = await PostgresLoader.create(PEInstance, documentLoaderArgs)
+      await PostgresLoader.create(PEInstance, documentLoaderArgs)
     }
 
     expect(createInstance()).rejects.toThrowError("At least one of the parameters 'table_name' or 'query' needs to be provided");
@@ -82,13 +68,13 @@ describe("Document loader creation", () => {
 
 
   test('should throw an error if an invalid format is provided', async () => {
-      const documentLoaderArgs: PostgresLoaderOptions = {
+      const documentLoaderArgs: any = {
         tableName: CUSTOM_TABLE,
         format: 'invalid_format',
       };
 
       async function createInstance() {
-        postgresLoaderInstance = await PostgresLoader.create(PEInstance, documentLoaderArgs);
+        await PostgresLoader.create(PEInstance, documentLoaderArgs);
       }
 
       await expect(createInstance()).rejects.toThrowError("format must be type: 'csv', 'text', 'json', 'yaml'");
@@ -102,7 +88,7 @@ describe("Document loader creation", () => {
       };
 
       async function createInstance() {
-        postgresLoaderInstance = await PostgresLoader.create(PEInstance, documentLoaderArgs);
+        await PostgresLoader.create(PEInstance, documentLoaderArgs);
       }
 
       await expect(createInstance()).rejects.toThrowError("Only one of 'format' or 'formatter' should be specified.");
@@ -116,7 +102,7 @@ describe("Document loader creation", () => {
       };
 
       async function createInstance() {
-        postgresLoaderInstance = await PostgresLoader.create(PEInstance, documentLoaderArgs);
+        await PostgresLoader.create(PEInstance, documentLoaderArgs);
       }
 
       await expect(createInstance()).rejects.toThrowError("Only one of 'table_name' or 'query' should be specified.");
@@ -130,7 +116,7 @@ describe("Document loader creation", () => {
       };
 
       async function createInstance() {
-        postgresLoaderInstance = await PostgresLoader.create(PEInstance, documentLoaderArgs);
+        await PostgresLoader.create(PEInstance, documentLoaderArgs);
       }
 
       await expect(createInstance()).rejects.toThrowError(`Column Imnotacolunm not found in query result fruit_id,fruit_name,variety,quantity_in_stock,price_per_unit,organic.`);
