@@ -28,7 +28,7 @@ $ yarn add @langchain/google-cloud-sql-pg
 Before you use the PostgresVectorStore you will need to create a postgres connection through the PostgresEngine interface.
 
 ```javascript
-import { PostgresEngine, PostgresEngineArgs, PostgresVectorStore } from "@langchain/google-cloud-sql-pg";
+import { Column, PostgresEngine, PostgresEngineArgs, PostgresVectorStore, VectorStoreTableArgs } from "@langchain/google-cloud-sql-pg";
 import { SyntheticEmbeddings } from "@langchain/core/utils/testing";
 
 const pgArgs: PostgresEngineArgs = {
@@ -36,7 +36,7 @@ const pgArgs: PostgresEngineArgs = {
     password: "password"
 }
 
-const engine: PostgresEngine = await PostgresEngine.from_instance(
+const engine: PostgresEngine = await PostgresEngine.fromInstance(
  "project-id",
  "region",
  "instance-name",
@@ -44,7 +44,11 @@ const engine: PostgresEngine = await PostgresEngine.from_instance(
  pgArgs
 );
 
-await engine.init_vectorstore_table("my-table", 768);
+const vectorStoreTableArgs: VectorStoreTableArgs = {
+  metadataColumns: [new Column("page", "TEXT"), new Column("source", "TEXT")],
+};
+
+await engine.initVectorstoreTable("my-table", 768, vectorStoreTableArgs);
 const embeddingService = new SyntheticEmbeddings({ vectorSize: 768 });
 
 ```
@@ -62,8 +66,7 @@ const pvectorArgs: PostgresVectorStoreArgs = {
     idColumn: "ID_COLUMN",
     contentColumn: "CONTENT_COLUMN",
     embeddingColumn: "EMBEDDING_COLUMN",
-    metadataColumns: ["page", "source"],
-    metadataJsonColumn: "my_metadata",
+    metadataColumns: ["page", "source"]
 }
 
 const vectorStoreInstance = await PostgresVectorStore.create(engine, embeddingService, "my-table", pvectorArgs)
@@ -78,7 +81,7 @@ PostgresVectorStore interface methods availables:
 -   similaritySearch
 -   and others.
 
-<!-- TODO: add reference to the how to doc -->
+See the full [Vector Store](https://js.langchain.com/docs/integrations/vectorstores/google_cloudsql_pg) tutorial.
 
 <!-- TODO: ### Document Loader usage -->
 

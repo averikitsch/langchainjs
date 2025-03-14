@@ -28,9 +28,6 @@ const engine: PostgresEngine = await PostgresEngine.fromInstance(
 );
 
 const pvectorArgs: PostgresVectorStoreArgs = {
-  idColumn: "uuid",
-  contentColumn: "my_content",
-  embeddingColumn: "my_embedding",
   metadataColumns: ["page", "source"],
 };
 
@@ -73,10 +70,10 @@ const documents = [document1, document2, document3];
 
 const ids = [uuidv4(), uuidv4(), uuidv4()];
 
-// Adding items to the vectorStore
+// Adding documents to the vectorStore
 await vectorStore.addDocuments(documents, { ids: ids });
 
-// Deleting an item
+// Deleting a document
 const id1 = ids[0];
 await vectorStore.delete({ ids: [id1] });
 
