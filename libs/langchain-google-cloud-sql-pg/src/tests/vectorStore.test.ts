@@ -23,6 +23,8 @@ const metadatas: Record<string, any>[] = [];
 const docs: DocumentInterface[] = [];
 const embeddings = [];
 
+let vectorStoreInstance: PostgresVectorStore;
+
 const pgArgs: PostgresEngineArgs = {
   user: process.env.DB_USER ?? "",
   password: process.env.PASSWORD ?? ""
@@ -53,7 +55,6 @@ for (let i = 0; i < texts.length; i++) {
 
 describe("VectorStore creation", () => {
   let PEInstance: PostgresEngine;
-  let vectorStoreInstance: PostgresVectorStore;
 
   beforeAll(async () => {
     PEInstance = await PostgresEngine.fromInstance(
@@ -187,7 +188,6 @@ describe("VectorStore creation", () => {
 describe("VectorStore methods", () => {
 
   let PEInstance: PostgresEngine;
-  let vectorStoreInstance: PostgresVectorStore;
 
   beforeAll(async () => {
     PEInstance = await PostgresEngine.fromInstance(
