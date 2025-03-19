@@ -245,3 +245,30 @@ We can easily load this wrapper as a Tool (to use with an Agent). We can do this
 const tools = [new GoogleCustomSearch({})];
 // Pass this variable into your agent.
 ```
+
+## Chat history
+
+### Postgres Chat Message History
+
+The [Postgres Chat Message History](docs/integrations/memory/google_cloudsql_pg.mdx) from the
+@langchain/google-cloud-sql-pg provides a way to use the CloudSQL for PostgresSQL  messages and 
+provide conversation history for Postgres using the class.
+
+*Note:* See the [Postgres Vector Store](#Postgres Vector Store) section on this page to learn
+how to install the package and initialize a DB connection.
+
+Initialize the chat history table:
+
+```typescript
+await engine..initChatHistoryTable("chat_message_table");
+```
+
+Create a chat message history instance:
+
+```typescript
+const historyInstace = await PostgresChatMessageHistory.create(
+  engine, 
+  "test", 
+  "chat_message_table"
+);
+```
