@@ -83,6 +83,76 @@ PostgresVectorStore interface methods availables:
 
 See the full [Vector Store](https://js.langchain.com/docs/integrations/vectorstores/google_cloudsql_pg) tutorial.
 
-<!-- TODO: ### Document Loader usage -->
+
+### Document Loader Usage
+
+The PostgresLoader allows you to load documents from a PostgreSQL table or a custom query. You can specify how the data is formatted into Document objects using either a predefined format or a custom formatter function.
+
+Example: Loading Documents from a Table
+
+```javascript
+import { PostgresLoader, PostgresLoaderOptions } from "@langchain/google-cloud-sql-pg";
+
+const documentLoaderArgs: PostgresLoaderOptions = {
+  tableName: "my-table",
+  schemaName: "public",
+  contentColumns: ["fruit_id", "fruit_name", "variety", "quantity_in_stock", "price_per_unit", "organic"],
+  metadataColumns: ["variety"],
+  format: "text", // Use a predefined format
+};
+
+const documentLoaderInstance = await PostgresLoader.create(engine, documentLoaderArgs);
+const documents = await documentLoaderInstance.load();
+
+console.log("Loaded Documents:", documents);
+```
+Example: Using a Custom Formatter
+
+If you need a custom format for the pageContent, you can provide a formatter function:
+
+```javascript
+const customFormatter = (row, contentColumns) => {
+  return contentColumns
+    .filter((column) => column in row)
+    .map((column) => `${column}: ${row[column]}`)
+    .join("\n");
+};
+
+const documentLoaderArgs: PostgresLoaderOptions = {
+  tableName: "my-table",
+  schemaName: "public",
+  contentColumns: ["fruit_id", "fruit_name", "variety", "quantity_in_stock", "price_per_unit", "organic"],
+  metadataColumns: ["variety"],
+  formatter: customFormatter, // Use a custom formatter
+};
+
+const documentLoaderInstance = await PostgresLoader.create(engine, documentLoaderArgs);
+const documents = await documentLoaderInstance.load();
+
+console.log("Loaded Documents:", documents);
+```
+Example: Loading Documents with a Custom Query
+
+You can also load documents using a custom SQL query:
+
+```javascript
+const documentLoaderArgs: PostgresLoaderOptions = {
+  query: 'SELECT * FROM "my-table" WHERE "organic" = 1', // Custom query
+  contentColumns: ["fruit_id", "fruit_name", "variety", "quantity_in_stock", "price_per_unit", "organic"],
+  metadataColumns: ["variety"],
+  format: "text",
+};
+
+const documentLoaderInstance = await PostgresLoader.create(engine, documentLoaderArgs);
+const documents = await documentLoaderInstance.load();
+
+console.log("Loaded Documents:", documents);
+```
+Available Methods in PostgresLoader:
+
+-   load(): Loads all documents into an array.
+-   lazyLoad(): Lazily loads documents as an async generator.
+
+See the full [Document Loader](https://js.langchain.com/docs/integrations/documentloader/google_cloudsql_pg) tutorial.
 
 <!-- TODO: ### ChatMessageHistory usage -->
