@@ -96,8 +96,8 @@ import { PostgresLoader, PostgresLoaderOptions } from "@langchain/google-cloud-s
 const documentLoaderArgs: PostgresLoaderOptions = {
   tableName: "my-table",
   schemaName: "public",
-  contentColumns: ["fruit_id", "fruit_name", "variety", "quantity_in_stock", "price_per_unit", "organic"],
-  metadataColumns: ["variety"],
+  contentColumns: ["fruit_name", "variety", "organic"],
+  metadataColumns: ["fruit_id", "quantity_in_stock", "price_per_unit"],
   format: "text", // Use a predefined format
 };
 
@@ -121,8 +121,8 @@ const customFormatter = (row, contentColumns) => {
 const documentLoaderArgs: PostgresLoaderOptions = {
   tableName: "my-table",
   schemaName: "public",
-  contentColumns: ["fruit_id", "fruit_name", "variety", "quantity_in_stock", "price_per_unit", "organic"],
-  metadataColumns: ["variety"],
+  contentColumns: ["fruit_name", "variety", "organic"],
+  metadataColumns: ["fruit_id", "quantity_in_stock", "price_per_unit"],
   formatter: customFormatter, // Use a custom formatter
 };
 
@@ -138,8 +138,8 @@ You can also load documents using a custom SQL query:
 ```javascript
 const documentLoaderArgs: PostgresLoaderOptions = {
   query: 'SELECT * FROM "my-table" WHERE "organic" = 1', // Custom query
-  contentColumns: ["fruit_id", "fruit_name", "variety", "quantity_in_stock", "price_per_unit", "organic"],
-  metadataColumns: ["variety"],
+  contentColumns: ["fruit_name", "variety", "organic"],
+  metadataColumns: ["fruit_id", "quantity_in_stock", "price_per_unit"],
   format: "text",
 };
 
