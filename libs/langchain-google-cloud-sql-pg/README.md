@@ -107,4 +107,4 @@ PostgresChatMessageHistory interface methods availables:
 -   getMessages
 -   clear
 
-<!-- TODO: add link to full tutorial -->
+See the full [Chat Message History](https://js.langchain.com/docs/integrations/memory/google_cloudsql_pg) tutorial.
