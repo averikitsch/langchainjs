@@ -87,7 +87,7 @@ See the full [Vector Store](https://js.langchain.com/docs/integrations/vectorsto
 
 ### ChatMessageHistory usage
 
-Use ```PostgresChatMessageHistory``` to store messages and provide conversation history for Postgres.
+Use `PostgresChatMessageHistory` to store messages and provide conversation history in Postgres.
 
 First, initialize the Chat History Table and then create the ChatMessageHistory instance. 
 
