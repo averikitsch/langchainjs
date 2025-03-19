@@ -36,8 +36,8 @@ async function createPostgresLoader(PEInstance: PostgresEngine) {
   const documentLoaderArgs: PostgresLoaderOptions = {  
     tableName: "test_table_custom",
     schemaName: "public",
-    contentColumns: ["fruit_id", "fruit_name", "variety", "quantity_in_stock", "price_per_unit", "organic"],
-    metadataColumns: ["variety"],
+    contentColumns: ["fruit_name", "variety", "organic"],
+    metadataColumns: ["fruit_id", "quantity_in_stock", "price_per_unit"],
     formatter: customFormatter, // or use format: "json" | "yaml" | "csv" | "text"
   };
   
