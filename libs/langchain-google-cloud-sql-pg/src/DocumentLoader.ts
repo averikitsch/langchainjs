@@ -103,7 +103,7 @@ export class PostgresLoader extends BaseDocumentLoader {
         const columnNames = result.fields.map((field: { name: any; }) => field.name);
 
         contentColumns = contentColumns || [columnNames[0]];
-        metadataColumns = metadataColumns || columnNames.filter((col: string) => !contentColumns.includes(col));
+        metadataColumns = metadataColumns || columnNames.filter((col: string) => !contentColumns?.includes(col));
 
         if (metadataJsonColumn && !columnNames.includes(metadataJsonColumn)) {
             throw new Error(`Column ${metadataJsonColumn} not found in query result ${columnNames}.`);
@@ -138,6 +138,9 @@ export class PostgresLoader extends BaseDocumentLoader {
   async *lazyLoad(): AsyncGenerator<Document> {
     let { query, contentColumns, metadataColumns, formatter, metadataJsonColumn } = this;
     try {
+      if (!query) {
+        throw new Error("Query is undefined");
+      }
       const result = await this.engine.pool.raw(query);
 
       for (const row of result.rows) {
