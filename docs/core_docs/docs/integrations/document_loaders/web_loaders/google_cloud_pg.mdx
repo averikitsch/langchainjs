@@ -1,0 +1,106 @@
+---
+hide_table_of_contents: true
+---
+
+import loadExample from "@examples/document_loaders/postgres_load";
+import CodeBlock from "@theme/CodeBlock";
+
+# PostgresLoader
+
+The `PostgresLoader` class provides functionality to load documents from a PostgreSQL database. It supports two main methods:
+
+1. **`load()`**: Retrieves all documents at once, ideal for small to moderate datasets.
+2. **`lazyLoad()`**: Fetches documents one by one, which is more memory-efficient for large datasets.
+
+## Prerequisites
+
+Before using the `PostgresLoader`, ensure that you have the following:
+
+1. A **PostgreSQL database** with the necessary tables and data.
+2. A **PostgresEngine** instance configured to connect to your database.
+3. The required environment variables for database authentication (e.g., `DB_USER`, `PASSWORD`).
+
+## Usage
+
+### Example: Loading Documents from a Table
+The following example demonstrates how to use the `PostgresLoader` to load documents from a PostgreSQL table.
+
+<CodeBlock language="typescript">{loadExample}</CodeBlock>
+
+### Example: Using a Custom Formatter
+If you need a custom format for the `pageContent`, you can provide a `formatter` function:
+
+```typescript
+const customFormatter = (row, contentColumns) => {
+  return contentColumns
+    .filter((column) => column in row)
+    .map((column) => `${column}: ${row[column]}`)
+    .join("\n");
+};
+
+const documentLoaderArgs: PostgresLoaderOptions = {
+  tableName: "my-table",
+  schemaName: "public",
+  contentColumns: ["fruit_id", "fruit_name", "variety", "quantity_in_stock", "price_per_unit", "organic"],
+  metadataColumns: ["variety"],
+  formatter: customFormatter, // Use a custom formatter
+};
+
+const documentLoaderInstance = await PostgresLoader.create(engine, documentLoaderArgs);
+const documents = await documentLoaderInstance.load();
+
+console.log("Loaded Documents:", documents);
+```
+
+### Example: Loading Documents with a Custom Query
+
+You can also load documents using a custom SQL query:
+
+```typescript
+const documentLoaderArgs: PostgresLoaderOptions = {
+  query: 'SELECT * FROM "my-table" WHERE "organic" = 1', // Custom query
+  contentColumns: ["fruit_id", "fruit_name", "variety", "quantity_in_stock", "price_per_unit", "organic"],
+  metadataColumns: ["variety"],
+  format: "text",
+};
+
+const documentLoaderInstance = await PostgresLoader.create(engine, documentLoaderArgs);
+const documents = await documentLoaderInstance.load();
+
+console.log("Loaded Documents:", documents);
+```
+
+## Available Methods
+
+### load()
+Retrieves all documents from the specified table or query and returns them as an array.
+
+```typescript
+const documents = await documentLoaderInstance.load();
+```
+
+### lazyLoad()
+Fetches documents one by one as an async generator. This is useful for large datasets to avoid memory overload.
+
+```typescript
+for await (const doc of documentLoaderInstance.lazyLoad()) {
+  console.log(doc);
+}
+```
+
+Configuration Options
+The PostgresLoader can be configured using the following options:
+
+-   tableName: The name of the table to load documents from.
+
+-   schemaName: The schema of the table (default: "public").
+
+-   contentColumns: The columns to include in the pageContent of the document.
+
+-   metadataColumns: The columns to include in the metadata of the document.
+
+-   format: The format to use for the pageContent (e.g., "text", "json", "yaml", "csv").
+
+-   formatter: A custom function to format the pageContent.
+
+-   query: A custom SQL query to load documents.
