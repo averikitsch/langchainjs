@@ -49,7 +49,7 @@ export class ExactNearestNeighbor extends BaseIndex {
   }
 
   indexOptions(): string {
-    return this.indexType;
+    throw new Error("indexOptions method must be implemented by subclass");
   }
 }
 
